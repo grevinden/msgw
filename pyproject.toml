@@ -10,6 +10,7 @@ dependencies = [
     "pydantic[email]",
     "pydantic-extra-types[all]",
     "cashews[dill,diskcache,speedup]>=7.5.0",
+    "cashews-mongo>=0.1.0"
 ]
 
 [tool.fastapi]
