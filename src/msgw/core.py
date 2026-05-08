@@ -17,9 +17,7 @@ from weakref import WeakSet
 import pydantic_core
 # Используем кеширование от cashews, но конкретно нам нужен DiskCache бэкенд
 from cashews import cache
-from cashews.backends.diskcache import DiskCache
 from cashews_mongo import MongoBackend
-from click import get_app_dir
 from fastapi import FastAPI
 from pydantic import BaseModel , Field , computed_field , UrlConstraints , AnyUrl , UUID4
 from pydantic_settings import BaseSettings
@@ -173,19 +171,16 @@ class ConnectionManager :
 
 @asynccontextmanager
 async def lifespan ( app: FastAPI ) :
-	bucket = DiskCache (
-		directory = get_app_dir ( NAME ) ,
-		shards = 1 ,
-		timeout = 5 ,
-	)
+	bucket = MongoBackend (
+		uri = "mongodb://127.0.0.1:27017" ,
+		database = "cashews" , collection = "cache" )
 	await bucket.init ( )
 
-	app.state.bucket = MongoBackend (
-		uri = "mongodb://127.0.0.1:27017" , database = "cashews" , collection = "cache" )
-	app.state.connections = ConnectionManager
-
 	try :
-		yield
+		yield {
+			'connections' : ConnectionManager ,
+			'bucket'      : bucket ,
+		}
 	finally :
 		await ConnectionManager.close ( )
 		await bucket.close ( )
@@ -204,51 +199,39 @@ app = FastAPI (
 	description = '\n'.join (
 		[
 			r'[reDoc](/) | [Swagger](/docs)' ,
-			(Path ( __file__ ).parent.parent.parent / 'README.md').read_text ( encoding = 'utf-8-sig' ).strip ( )
+			(Path ( __file__ ).parent.parent.parent / 'README.md')
+			.read_text ( encoding = 'utf-8-sig' ).strip ( )
 		] ,
 	) ,
 )
 
 
-async def update_bucket ( bucket: DiskCache , message: Message ) -> None :
-	"""
-	Обновляет хранилище в зависимости от типа сообщения.
-	- notify → сохраняем JSON сообщения
-	- receipt → удаляем по uuid
-	"""
+async def update_bucket ( bucket: MongoBackend , message: Message ) -> None :
 	match message.typ :
 		case "notify" :
 			await bucket.set ( key = message.uuid.hex , value = message.model_dump_json ( ) )
 		case "receipt" :
 			await bucket.delete ( key = message.uuid.hex )
-		case _ :
-			# unknown – ничего не делаем
-			pass
 
 
-async def send_pending_messages ( websocket: WebSocket , bucket: DiskCache ) -> bool :
-	messages = [ ]
-	try :
-		async for key , msg_json in bucket.get_match ( "*" ) :
-			logger.debug ( f"Отправка накопленного сообщения key={key}" )
-			messages.append ( msg_json )
-	except Exception as e :
-		logger.exception ( "Ошибка при итерации по bucket.get_match" )
+async def send_pending_messages ( websocket: WebSocket , bucket: MongoBackend ) -> bool :
+	for v in iter ( [ v async for k , v in bucket.get_match ( "*" ) ] ) :
 		try :
-			await websocket.close ( )
-		except :
-			pass
-		return False
-
-	for msg_json in messages :
-		try :
-			await websocket.send_text ( msg_json )
-		except WebSocketDisconnect :
-			logger.info ( "Клиент отключился при отправке накопленных" )
-			return False
+			await websocket.send_text ( v )
 		except Exception as e :
 			logger.warning ( f"Не удалось отправить сообщение: {e}" )
 	return True
+
+
+async def exchange_prepare ( ws: WebSocket ) -> tuple [ ConnectionManager.Pool , MongoBackend ] :
+	await ws.accept ( )
+	ws.state.connections.pool.add ( ws )
+	return ws.state.connections.pool , ws.state.bucket
+
+
+async def process_message ( m: Message , b: MongoBackend , / ) -> None :
+	await update_bucket ( b , m )
+	await ConnectionManager.broadcast ( m )
 
 
 # --------------------------------------------------------------------------
@@ -256,41 +239,42 @@ async def send_pending_messages ( websocket: WebSocket , bucket: DiskCache ) -> 
 # --------------------------------------------------------------------------
 @app.websocket ( "/{path:path}" )
 async def exchange ( * , websocket: WebSocket ) -> None :
-	await websocket.accept ( )
-	bucket = app.state.bucket
-	pool = app.state.connections.pool
-	pool.add ( websocket )
+	pool , bucket = await exchange_prepare ( websocket )
+
+	await sleep ( .1 )
 
 	if not await send_pending_messages ( websocket , bucket ) :
 		pool.discard ( websocket )
 		return
-	await sleep ( 0.1 )  # освобождение блокировки
+
+	await sleep ( .1 )
 
 	try :
 		while True :
+			await sleep ( .1 )
+
 			try :
-				raw_data = await wait_for ( websocket.receive_text ( ) , timeout = 0.1 )
+				raw_data = (await wait_for ( websocket.receive_text ( ) , timeout = .1 )) or None
+				await sleep ( .1 )
+
 			except TimeoutError :
-				# Проверяем, жив ли сокет
 				if websocket.client_state != WebSocketState.CONNECTED :
 					break
-				continue
-			except (WebSocketDisconnect , RuntimeError) as e :
-				# Любое закрытие соединения штатно завершает цикл
-				if isinstance ( e , RuntimeError ) and "not connected" in str ( e ) :
-					logger.debug ( "Соединение закрыто до начала чтения" )
 				else :
-					logger.debug ( "WebSocket отключён" )
-				break
-			except Exception as e :
-				logger.exception ( f"Ошибка в цикле чтения: {e}" )
+					continue
+
+			except (WebSocketDisconnect , RuntimeError) as e :
+				logger.debug ( str ( e ) )
 				break
 
-			message = Message.from_json ( raw_data )
-			if not message :
-				continue
-			await update_bucket ( bucket , message )
-			await ConnectionManager.broadcast ( message )
+			except Exception as e :
+				logger.exception ( str ( e ) )
+				break
+
+			else :
+				if raw_data and (message := Message.from_json ( raw_data )) :
+					await process_message ( message , bucket )
+
 	finally :
 		pool.discard ( websocket )
 
