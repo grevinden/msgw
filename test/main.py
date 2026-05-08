@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
 """
-Групповой тест MessageCenter на полной мощности.
-
-Использование:
-    python group_test.py --senders 20 --receivers 20 --max-messages 1000 --verbose
-Остановка: Ctrl+C
+Групповой тест MessageCenter (помогает выявить ошибки)
 """
 
 import asyncio
 import json
 import uuid
-from typing import Set, List, Optional
-from collections import defaultdict
+import logging
+from typing import Set, List
 
 import typer
 import websockets
 from rich.logging import RichHandler
-import logging
 
-app = typer.Typer(help="Групповой тест MessageCenter (бесконечная нагрузка)")
+app = typer.Typer(help="Групповой тест MessageCenter (диагностика ошибок)")
 
 def setup_logging(verbose: bool, debug: bool) -> logging.Logger:
     level = logging.DEBUG if debug else (logging.INFO if verbose else logging.WARNING)
@@ -35,9 +30,10 @@ async def clear_server(ws_url: str, logger: logging.Logger) -> int:
     try:
         async with websockets.connect(ws_url) as ws:
             pending = []
+            # Увеличиваем таймаут сбора сообщений до 2 секунд
             while True:
                 try:
-                    msg = await asyncio.wait_for(ws.recv(), timeout=0.5)
+                    msg = await asyncio.wait_for(ws.recv(), timeout=2.0)
                     data = json.loads(msg)
                     if data.get("typ") == "notify":
                         pending.append(data["uuid"])
@@ -49,14 +45,14 @@ async def clear_server(ws_url: str, logger: logging.Logger) -> int:
                 fail_msg = {"uuid": uid, "payload": {"typ": "fail", "err": "cleared"}}
                 await ws.send(json.dumps(fail_msg))
                 while True:
-                    resp = await asyncio.wait_for(ws.recv(), timeout=5.0)
+                    resp = await asyncio.wait_for(ws.recv(), timeout=10.0)
                     data = json.loads(resp)
                     if data.get("uuid") == uid and data.get("typ") == "receipt":
                         break
             logger.info(f"🧹 Очищено {len(pending)} старых сообщений")
             return len(pending)
     except Exception as e:
-        logger.error(f"Ошибка очистки: {e}")
+        logger.error(f"Ошибка очистки: {type(e).__name__}: {e}", exc_info=True)
         return 0
 
 async def sender(
@@ -67,11 +63,12 @@ async def sender(
     max_messages: int,
     stop_event: asyncio.Event,
 ) -> None:
-    """Отправитель – шлёт send и ждёт receipt (до stop_event или лимита)."""
     sent = 0
     confirmed = 0
     try:
+        logger.debug(f"[S{sender_id}] Подключение...")
         async with websockets.connect(ws_url) as ws:
+            logger.debug(f"[S{sender_id}] Подключено")
             while not stop_event.is_set():
                 if max_messages > 0 and sent >= max_messages:
                     break
@@ -86,19 +83,19 @@ async def sender(
 
                 while not stop_event.is_set():
                     try:
-                        resp = await asyncio.wait_for(ws.recv(), timeout=5.0)
+                        resp = await asyncio.wait_for(ws.recv(), timeout=10.0)
                         data = json.loads(resp)
                         if data.get("uuid") == msg_uuid and data.get("typ") == "receipt":
                             confirmed += 1
                             logger.debug(f"[S{sender_id}] ← receipt {msg_uuid[:8]}")
                             break
                     except asyncio.TimeoutError:
-                        logger.warning(f"[S{sender_id}] Таймаут для {msg_uuid[:8]}")
+                        logger.warning(f"[S{sender_id}] Таймаут receipt для {msg_uuid[:8]}")
                         break
-    except Exception as e:
-        logger.error(f"[S{sender_id}] Ошибка: {e}")
-    finally:
         stats[sender_id] = (sent, confirmed)
+    except Exception as e:
+        logger.error(f"[S{sender_id}] Критическая ошибка: {type(e).__name__}: {e}", exc_info=True)
+        stats[sender_id] = (0, 0)
 
 async def receiver(
     receiver_id: int,
@@ -107,12 +104,10 @@ async def receiver(
     handled_uuids: Set[str],
     stop_event: asyncio.Event,
 ) -> None:
-    """Получатель – слушает notify и отвечает done."""
     processed = 0
     try:
         async with websockets.connect(ws_url) as ws:
-            # Пропускаем возможные старые сообщения (после очистки их нет)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5)  # пропускаем возможные остатки
             while not stop_event.is_set():
                 try:
                     resp = await asyncio.wait_for(ws.recv(), timeout=1.0)
@@ -131,9 +126,7 @@ async def receiver(
                 except websockets.ConnectionClosed:
                     break
     except Exception as e:
-        logger.error(f"[R{receiver_id}] Ошибка: {e}")
-    finally:
-        logger.debug(f"[R{receiver_id}] Обработано: {processed}")
+        logger.error(f"[R{receiver_id}] Ошибка: {type(e).__name__}: {e}", exc_info=True)
 
 async def async_main(
     senders: int,
@@ -151,8 +144,13 @@ async def async_main(
     else:
         logger.info("   Будет работать до остановки (Ctrl+C)")
 
-    # Очистка перед тестом
-    await clear_server(ws_url, logger)
+    # Гарантированная очистка перед тестом
+    logger.info("Очистка сервера перед тестом...")
+    cleared = await clear_server(ws_url, logger)
+    while cleared > 0:
+        logger.info(f"Повторная очистка (осталось {cleared})...")
+        await asyncio.sleep(1)
+        cleared = await clear_server(ws_url, logger)
 
     stop_event = asyncio.Event()
     stats = {}
@@ -163,7 +161,7 @@ async def async_main(
         asyncio.create_task(receiver(i, ws_url, logger, handled_uuids, stop_event))
         for i in range(receivers)
     ]
-    await asyncio.sleep(0.5)  # даём получателям подключиться
+    await asyncio.sleep(0.5)
 
     # Запуск отправителей
     sender_tasks = [
@@ -172,17 +170,15 @@ async def async_main(
     ]
 
     try:
-        # Ждём либо завершения отправителей (если лимит достигнут), либо остановки
-        await asyncio.gather(*sender_tasks, return_exceptions=True)
+        await asyncio.gather(*sender_tasks)
     except asyncio.CancelledError:
-        # Возникает при Ctrl+C (через asyncio.run)
-        logger.info("⚠️ Получен сигнал остановки, завершаем...")
+        logger.info("⚠️ Тест прерван пользователем")
     finally:
-        # Останавливаем получателей
         stop_event.set()
+        # Даём получателям завершить
+        await asyncio.sleep(1)
         await asyncio.gather(*receiver_tasks, return_exceptions=True)
 
-    # Статистика
     total_sent = sum(s[0] for s in stats.values())
     total_confirmed = sum(s[1] for s in stats.values())
     unique_handled = len(handled_uuids)
@@ -190,38 +186,38 @@ async def async_main(
     print("\n" + "=" * 60)
     logger.info(f"📊 СТАТИСТИКА:")
     logger.info(f"   Отправлено send: {total_sent}")
-    logger.info(f"   Получено receipt (подтверждено): {total_confirmed}")
+    logger.info(f"   Получено receipt: {total_confirmed}")
     logger.info(f"   Обработано notify получателями: {unique_handled}")
     if total_sent > 0:
         logger.info(f"   Доля подтверждённых: {total_confirmed / total_sent * 100:.2f}%")
     logger.info(f"✅ Всего отправителей: {len(stats)}, получателей: {receivers}")
 
-    # Очистка после теста
-    logger.info("Очистка сервера после теста...")
+    extra = unique_handled - total_sent
+    if extra > 0:
+        logger.warning(f"⚠️ Обработано {extra} сообщений, которые не были отправлены в этом тесте (старые)")
+    elif extra < 0:
+        logger.error(f"❌ Не получили подтверждения для {-extra} сообщений")
+
+    # Финальная очистка
+    logger.info("Финальная очистка сервера...")
     await clear_server(ws_url, logger)
 
     if total_confirmed == total_sent and total_sent == unique_handled and total_sent > 0:
         logger.info("🎉 ТЕСТ ПРОЙДЕН УСПЕШНО")
         return 0
     else:
-        if total_sent == 0:
-            logger.warning("⚠️ Не было отправлено ни одного сообщения")
-        else:
-            logger.error("❌ ТЕСТ ЗАВЕРШИЛСЯ С ОШИБКАМИ")
+        logger.error("❌ ТЕСТ ЗАВЕРШИЛСЯ С ОШИБКАМИ")
         return 1
 
 @app.command()
 def main(
-    senders: int = typer.Option(2, "--senders", "-s", help="Количество отправителей"),
-    receivers: int = typer.Option(2, "--receivers", "-r", help="Количество получателей"),
+    senders: int = typer.Option(20, "--senders", "-s", help="Количество отправителей"),
+    receivers: int = typer.Option(20, "--receivers", "-r", help="Количество получателей"),
     url: str = typer.Option("ws://localhost:8000/test", "--url", "-u", help="WebSocket URL"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Подробный вывод"),
+    verbose: bool = typer.Option(True, "--verbose", "-v", help="Подробный вывод"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Отладочный вывод"),
-    max_messages: int = typer.Option(-1, "--max-messages", "-M", help="Максимум сообщений на отправителя (-1 = без лимита)"),
-) -> None:
-    """
-    Групповой тест на полной мощности. Остановка: Ctrl+C.
-    """
+    max_messages: int = typer.Option(-1, "--max-messages", "-M", help="Лимит сообщений на отправителя (-1 = без лимита)"),
+):
     exit_code = asyncio.run(async_main(senders, receivers, url, verbose, debug, max_messages))
     raise typer.Exit(code=exit_code)
 

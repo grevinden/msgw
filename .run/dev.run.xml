@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run" type="UvRunConfigurationType" factoryName="UvRunConfigurationType">
+  <configuration default="false" name="dev" type="UvRunConfigurationType" factoryName="UvRunConfigurationType">
     <option name="args">
       <list>
-        <option value="run" />
+        <option value="dev" />
       </list>
     </option>
     <option name="checkSync" value="true" />

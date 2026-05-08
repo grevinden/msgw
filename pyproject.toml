@@ -1,21 +1,29 @@
 [project]
 name = "msgw"
 version = "0.0.0"
-description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
-    "apprise>=1.10.0",
     "fastapi[standard-no-fastapi-cloud-cli]>=0.136.1",
     "fastapi-cli[new,standard-no-fastapi-cloud-cli]",
     "pydantic[email]",
     "pydantic-extra-types[all]",
-    "cashews[dill,diskcache,speedup]>=7.5.0",
-    "cashews-mongo>=0.1.0"
+    "cashews[dill,diskcache,speedup,redis]>=7.5.0",
+    "cashews-mongo>=0.1.0",
+    "asyncer>=0.0.17",
+    "yarl>=1.23.0",
+    "uv-build>=0.11.11,<0.12",
+    "websockets>=16.0",
 ]
 
 [tool.fastapi]
 entrypoint = "src.msgw:app"
 
+[project.scripts]
+msgw = "msgw:main"
 
 [tool.uv]
-package = false
+package = true
+
+[build-system]
+requires = ["uv_build>=0.11.11,<0.12"]
+build-backend = "uv_build"
