@@ -1,0 +1,20 @@
+[project]
+name = "msgw"
+version = "0.0.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "apprise>=1.10.0",
+    "fastapi[standard-no-fastapi-cloud-cli]>=0.136.1",
+    "fastapi-cli[new,standard-no-fastapi-cloud-cli]",
+    "pydantic[email]",
+    "pydantic-extra-types[all]",
+    "cashews[dill,diskcache,speedup]>=7.5.0",
+]
+
+[tool.fastapi]
+entrypoint = "src.msgw:app"
+
+
+[tool.uv]
+package = false
