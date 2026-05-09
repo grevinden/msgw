@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal , Final , cast
 
 from cashews import cache
+from cashews.exceptions import CacheError
 from cashews.backends.interface import Backend
 from cashews_mongo import MongoBackend , MongoClientSideBackend  # noqa
 from fastapi import FastAPI
@@ -59,7 +60,10 @@ async def update_bucket (
 		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = Settings.cache_ttl
 ) -> str | None :  #
 	await b.set ( key = k , value = v , expire = l )
-	return cast ( str | None , await b.get ( key = k , default = None ) )
+	if result:= cast ( str | None , await b.get ( key = k , default = None ) ):
+		return result
+	else :
+		raise CacheError
 
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
