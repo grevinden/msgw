@@ -5,9 +5,11 @@
         <option value="msgw:app" />
       </list>
     </option>
-    <option name="checkSync" value="false" />
+    <option name="checkSync" value="true" />
     <option name="env">
-      <map />
+      <map>
+        <entry key="MSGW_CACHE" value="redis://127.0.0.1:6379/0" />
+      </map>
     </option>
     <option name="runType" value="MODULE" />
     <option name="scriptOrModule" value="uvicorn" />
