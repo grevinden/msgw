@@ -1,18 +1,16 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run" type="UvRunConfigurationType" factoryName="UvRunConfigurationType">
+  <configuration default="false" name="uvicorn" type="UvRunConfigurationType" factoryName="UvRunConfigurationType">
     <option name="args">
       <list>
-        <option value="run" />
+        <option value="msgw:app" />
       </list>
     </option>
-    <option name="checkSync" value="true" />
+    <option name="checkSync" value="false" />
     <option name="env">
-      <map>
-        <entry key="MSGW_CACHE" value="redis://127.0.0.1:6379/0" />
-      </map>
+      <map />
     </option>
     <option name="runType" value="MODULE" />
-    <option name="scriptOrModule" value="fastapi" />
+    <option name="scriptOrModule" value="uvicorn" />
     <option name="uvArgs">
       <list />
     </option>

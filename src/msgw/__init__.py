@@ -5,7 +5,6 @@ from fastapi import BackgroundTasks
 from fastapi.logger import logger
 from starlette.requests import Request
 from starlette.websockets import WebSocket , WebSocketDisconnect
-from uvicorn import run
 
 from .core import app , send_pending_messages , update_bucket
 from .model import Message
@@ -47,15 +46,3 @@ async def exchange ( * , w: WebSocket ) -> None :
 async def send ( r: Request , m: Message , t: BackgroundTasks ) -> Message :
 	t.add_task ( process_message , m , r.state.bucket )
 	return m
-
-
-def main ( ) :
-	run (
-		"msgw:app" ,
-		ws_ping_interval = 1 ,
-		ws_ping_timeout = 3 ,
-		server_header = False ,
-		date_header = False ,
-		forwarded_allow_ips = "*" ,
-		ws = 'websockets-sansio' ,
-	)
