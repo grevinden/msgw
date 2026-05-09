@@ -1,4 +1,5 @@
 from typing import Literal , Annotated
+from uuid import UUID
 
 from pydantic import BaseModel , UUID4 , Field , computed_field , PositiveInt
 from pydantic_core import from_json
@@ -57,10 +58,11 @@ class Message ( BaseModel , frozen = True ) :
 		except Exception as exc :
 			try :
 				data = from_json ( text , allow_partial = True )
-				uuid = data.get ( "uuid" ) or "00000000-0000-0000-0000-000000000000"
+				uuid = UUID ( data.get ( "uuid" ) )
+				ttl = int ( data.get ( "ttl" ) )
 				return cls.model_validate (
 					{
-						"uuid"    : uuid ,
+						"uuid"    : uuid , ttl : ttl if ttl > 0 else Settings.cache_ttl ,
 						"payload" : { "typ" : "fail" , "err" : str ( exc ) } ,
 					} ,
 				)

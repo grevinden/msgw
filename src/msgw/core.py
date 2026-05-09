@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from logging import getLogger , Logger , DEBUG
 from pathlib import Path
-from typing import Literal , Final
+from typing import Literal , Final , cast
 
 from cashews import cache
 from cashews.backends.interface import Backend
@@ -49,23 +49,20 @@ app = FastAPI (
 	) ,
 )
 
-@app.exception_handler(Exception)
-async def exc(*args, **kwargs) -> None :
+
+@app.exception_handler ( Exception )
+async def exc ( *args , **kwargs ) -> None :
 	pass
+
 
 async def update_bucket (
 		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = Settings.cache_ttl
-) -> str :  #
-
-	match t :
-		case "notify" :
-			await b.set ( key = k , value = v , expire = l )
-		case "receipt" :
-			await b.delete ( key = k )
-	return v
+) -> str | None :  #
+	await b.set ( key = k , value = v , expire = l )
+	return cast ( str | None , b.get ( key = k , default = None ) )
 
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
 	async for k in b.scan ( "*" , batch_size = Settings.cache_batch_size ) :
-		if t := await b.get ( k , None ) :
+		if t := await b.get ( key = k , default = None ) :
 			await ws_send ( w , t )
