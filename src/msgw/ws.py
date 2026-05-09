@@ -1,9 +1,11 @@
 from asyncio import sleep
 from weakref import WeakSet
 
+from pydantic import validate_call , ConfigDict
 from starlette.websockets import WebSocket , WebSocketState
 
 
+@validate_call ( config = ConfigDict ( arbitrary_types_allowed = True ) )
 async def ws_send ( w: WebSocket , t: str , / ) -> None :
 	await sleep ( .3 )
 	if ws_conn ( w ) :
@@ -30,6 +32,7 @@ class ConnectionManager :
 	pool = Pool ( )
 
 	@classmethod
+	@validate_call
 	async def broadcast ( cls , m: str ) -> None :
 		await cls.pool.broadcast ( m )
 

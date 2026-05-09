@@ -59,7 +59,7 @@ async def update_bucket (
 		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = Settings.cache_ttl
 ) -> str | None :  #
 	await b.set ( key = k , value = v , expire = l )
-	return cast ( str | None , b.get ( key = k , default = None ) )
+	return cast ( str | None , await b.get ( key = k , default = None ) )
 
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
