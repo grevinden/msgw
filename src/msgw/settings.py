@@ -1,10 +1,11 @@
 from os import environ
+from pathlib import Path
 from typing import Final , Literal , Annotated , Any , override
 
 import cashews_mongo  # noqa
 import yarl
 from cashews import cache
-from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt
+from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt , computed_field
 from pydantic_settings import BaseSettings
 
 NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
@@ -39,6 +40,10 @@ class Settings (
 				settings_url = url.human_repr ( ) ,
 				suppress = __debug__ ,
 			)
+
+	@computed_field
+	def path_root ( self ) -> Path :
+		return Path ( __file__ ).parent.parent.parent
 
 
 # noinspection PyArgumentList

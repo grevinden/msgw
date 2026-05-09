@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from logging import getLogger , Logger , DEBUG
-from pathlib import Path
 from typing import Literal , Final , cast
 
 from cashews import cache
-from cashews.exceptions import CacheError
 from cashews.backends.interface import Backend
+from cashews.exceptions import CacheError
 from cashews_mongo import MongoBackend , MongoClientSideBackend  # noqa
 from fastapi import FastAPI
 from pydantic import PositiveInt
@@ -44,7 +43,7 @@ app = FastAPI (
 	description = '\n'.join (
 		[
 			r'[reDoc](/) | [Swagger](/docs)' ,
-			(Path ( __file__ ).parent.parent.parent / 'README.md')
+			(Settings.path_root / 'README.md')
 			.read_text ( encoding = 'utf-8-sig' ).strip ( )
 		] ,
 	) ,
@@ -60,7 +59,7 @@ async def update_bucket (
 		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = Settings.cache_ttl
 ) -> str | None :  #
 	await b.set ( key = k , value = v , expire = l )
-	if result:= cast ( str | None , await b.get ( key = k , default = None ) ):
+	if result := cast ( str | None , await b.get ( key = k , default = None ) ) :
 		return result
 	else :
 		raise CacheError
