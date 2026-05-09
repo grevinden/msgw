@@ -4,6 +4,10 @@ WORKDIR /app
 
 LABEL maintainer="anton@79252587842.ru"
 LABEL description="MessageCenter – WebSocket/HTTP шлюз"
+LABEL org.opencontainers.image.title="MessageCenter"
+LABEL org.opencontainers.image.description="WebSocket/HTTP шлюз с гарантированной доставкой"
+LABEL org.opencontainers.image.version="0.0.0"
+
 
 ENV \
 PYTHONOPTIMIZE=1 \
