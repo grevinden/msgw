@@ -1,18 +1,23 @@
 from typing import Literal , Annotated
 from uuid import UUID
 
-from pydantic import BaseModel , UUID4 , Field , computed_field , PositiveInt , SecretStr, StrictStr
+from pydantic import BaseModel , UUID4 , Field , computed_field , PositiveInt , SecretStr , AnyUrl , field_serializer
 from pydantic_core import from_json
 from ulid import ULID
 
+# noinspection PyDataclass
 from .settings import Settings
 
 
 # noinspection PyDataclass
 class MessageSend ( BaseModel , frozen = True ) :
 	typ: Literal [ "send" ]
-	top: Annotated [ StrictStr , Field ( min_length = 1 ) ]
+	top: AnyUrl
 	mes: Annotated [ SecretStr , Field ( min_length = 1 , strict = True ) ]
+
+	@field_serializer ( 'mes' , mode = 'plain' )
+	def serialize_top ( self , v: SecretStr ) -> str :
+		return v.get_secret_value ( )
 
 
 # noinspection PyDataclass
@@ -59,7 +64,7 @@ class Message ( BaseModel , frozen = True ) :
 			try :
 				data = from_json ( text , allow_partial = True )
 				uuid = UUID ( data.get ( "uuid" ) )
-				ttl = int ( data.get ( "ttl", Settings.cache_ttl ) )
+				ttl = int ( data.get ( "ttl" , Settings.cache_ttl ) )
 				return cls.model_validate (
 					{
 						"uuid"    : uuid , ttl : ttl if ttl > 0 else Settings.cache_ttl ,

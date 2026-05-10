@@ -30,7 +30,6 @@ async def lifespan ( app: FastAPI ) :
 			'bucket'      : cache ,
 		}
 	finally :
-		await ConnectionManager.close ( )
 		await cache.close ( )
 
 
@@ -48,11 +47,6 @@ app = FastAPI (
 		] ,
 	) ,
 )
-
-
-@app.exception_handler ( Exception )
-async def exc ( *args , **kwargs ) -> None :
-	pass
 
 
 async def update_bucket (
