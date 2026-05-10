@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from asyncio import shield
 from contextlib import asynccontextmanager
 from logging import getLogger , Logger , DEBUG
 from typing import Literal , Final , cast
 
+from asyncer import create_task_group
 from cashews import cache
 from cashews.backends.interface import Backend
 from cashews.exceptions import CacheError
@@ -59,7 +61,12 @@ async def update_bucket (
 		raise CacheError
 
 
+async def send_pending_message ( w: WebSocket , b: Backend , k: str ) -> None :
+	if t := await b.get ( key = k , default = None ) :
+		await ws_send ( w , t )
+
+
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
-	async for k in b.scan ( "*" , batch_size = Settings.cache_batch_size ) :
-		if t := await b.get ( key = k , default = None ) :
-			await ws_send ( w , t )
+	async with create_task_group ( ) as tg :
+		async for k in b.scan ( "*" , batch_size = Settings.cache_batch_size ) :
+			tg.soonify ( shield ) ( send_pending_message ( w , b , k ) )

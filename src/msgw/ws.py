@@ -9,7 +9,6 @@ from starlette.websockets import WebSocket , WebSocketState
 
 @validate_call ( config = ConfigDict ( arbitrary_types_allowed = True ) )
 async def ws_send ( w: WebSocket , t: str , / ) -> None :
-	await sleep ( .1 )
 	if ws_conn ( w ) :
 		await w.send_text ( t )
 
