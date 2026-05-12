@@ -1,6 +1,6 @@
 # MessageCenter
 
-Сервис на FastAPI: приём/доставка сообщений (WebSocket, HTTP-QUERY) и хранение в Redis, а также reverse proxy с расшифровкой ECIES-вставок.  
+Сервис на FastAPI: приём/доставка сообщений (WebSocket, HTTP-QUERY) + хранение в Redis, а также reverse proxy с расшифровкой ECIES.  
 Контейнер, только ENV-конфигурация.
 
 ---
@@ -8,16 +8,16 @@
 ## Архитектура
 
 ```
-+-------------+      +-------------------+      +-------------------+
-|  Клиенты    |      |  MessageCenter    |      |  Redis / Backend  |
-| WS / HTTP   |<---->|  :8000            |<---->|                   |
-+-------------+      +-------------------+      +-------------------+
-        |                        |
-        | Сообщения (WS, QUERY)  | Прокси (POST + upstream)
-        +------------------------+
++-------------+      +----------------+      +-------------------+
+|  Клиенты    |      | MessageCenter  |      |  Redis / Backend  |
+| WS / HTTP   |<---->|    :8000       |<---->|                   |
++-------------+      +----------------+      +-------------------+
+        |                       |
+        | Сообщения (WS, QUERY) | Прокси (POST + upstream)
+        +-----------------------+
 ```
 
-Два режима: **сообщения** (хранение + рассылка) и **прокси с расшифровкой** (при заданном ключе).
+Два режима: **сообщения** (хранение + рассылка) и **прокси с расшифровкой** (только при заданном ключе).
 
 ---
 
@@ -32,14 +32,17 @@ docker run -d --name msgw --network msgw-net -p 8000:8000 \
   -e MSGW_CACHE=redis://redis:6379/0 \
   ghcr.io/grevinden/msgw:latest
 
-# С расшифровкой
+# С расшифровкой (прокси активирован)
 docker run -d --name msgw --network msgw-net -p 8000:8000 \
   -e MSGW_CACHE=redis://redis:6379/0 \
   -e MSGW_ECIES_KEY="ваш_приватный_ключ_base64url" \
   ghcr.io/grevinden/msgw:latest
 ```
 
-Открыты: `ws://<хост>:8000/<путь>`, `http://<хост>:8000/<путь>` (QUERY), `POST ...?upstream=...` (при ключе).
+Открыты:
+- `ws://<хост>:8000/<путь>` – WebSocket
+- `http://<хост>:8000/<путь>` – метод QUERY
+- `POST http://<хост>:8000/<путь>?upstream=...` – прокси (при ключе)
 
 ---
 
@@ -50,88 +53,36 @@ docker run -d --name msgw --network msgw-net -p 8000:8000 \
 **JavaScript**
 ```javascript
 const ws = new WebSocket("ws://msgw:8000/chat/general");
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    uuid: crypto.randomUUID(),
-    ttl: 3600,
-    payload: { typ: "send", top: "https://t.me/example", mes: "Привет" }
-  }));
-};
-ws.onmessage = (e) => console.log(JSON.parse(e.data));
+ws.onopen = () => ws.send(JSON.stringify({
+  uuid: crypto.randomUUID(),
+  ttl: 3600,
+  payload: { typ: "send", top: "https://t.me/example", mes: "Привет" }
+}));
+ws.onmessage = e => console.log(JSON.parse(e.data));
 ```
 
-**Go** (gorilla/websocket)
+**Go (gorilla/websocket)**
 ```go
-package main
-
-import (
-	"log"
-	"net/url"
-	"os"
-	"os/signal"
-
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-)
-
-func main() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	u := url.URL{Scheme: "ws", Host: "msgw:8000", Path: "/chat/general"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer c.Close()
-
-	msg := map[string]interface{}{
-		"uuid": uuid.New().String(),
-		"ttl":  3600,
-		"payload": map[string]interface{}{
-			"typ": "send",
-			"top": "https://t.me/example",
-			"mes": "Привет из Go",
-		},
-	}
-	c.WriteJSON(msg)
-
-	go func() {
-		for {
-			var m map[string]interface{}
-			if err := c.ReadJSON(&m); err != nil {
-				log.Println("read:", err)
-				return
-			}
-			log.Printf("received: %v\n", m)
-		}
-	}()
-
-	<-interrupt
+u := url.URL{Scheme: "ws", Host: "msgw:8000", Path: "/chat/general"}
+c, _, _ := websocket.DefaultDialer.Dial(u.String(), nil)
+defer c.Close()
+msg := map[string]interface{}{
+    "uuid": uuid.New().String(), "ttl": 3600,
+    "payload": map[string]interface{}{"typ":"send","top":"https://t.me/example","mes":"Привет"},
 }
+c.WriteJSON(msg)
+// чтение входящих: c.ReadJSON(&m)
 ```
 
-**Python** (websockets)
+**Python (websockets)**
 ```python
-import asyncio, json, uuid
-import websockets
-
-async def main():
-    async with websockets.connect("ws://msgw:8000/chat/general") as ws:
-        msg = {
-            "uuid": str(uuid.uuid4()),
-            "ttl": 3600,
-            "payload": {
-                "typ": "send",
-                "top": "https://t.me/example",
-                "mes": "Привет из Python"
-            }
-        }
-        await ws.send(json.dumps(msg))
-        async for message in ws:
-            print(json.loads(message))
-
-asyncio.run(main())
+async with websockets.connect("ws://msgw:8000/chat/general") as ws:
+    await ws.send(json.dumps({
+        "uuid": str(uuid.uuid4()), "ttl": 3600,
+        "payload": {"typ":"send","top":"https://t.me/example","mes":"Привет"}
+    }))
+    async for msg in ws:
+        print(json.loads(msg))
 ```
 
 ### Типы пакетов
@@ -144,9 +95,9 @@ asyncio.run(main())
   "payload": {"typ": "send", "top": "https://t.me/example", "mes": "Важное"}
 }
 ```
-Сохраняется в Redis, рассылается всем подключённым. TTL обновляется при любой записи.
+Сохраняется в Redis, рассылается всем. TTL обновляется при каждой записи.
 
-**`done`** – подтверждение
+**`done`** – подтверждение обработки
 ```json
 {
   "uuid": "550e8400-e29b-41d4-a716-446655440000",
@@ -154,9 +105,9 @@ asyncio.run(main())
   "payload": {"typ": "done"}
 }
 ```
-Перезаписывает старый пакет с тем же `uuid`. Новые клиенты получат `done`.
+Перезаписывает старый пакет с тем же uuid. Новые клиенты получат `done`.
 
-**`fail`** – ошибка
+**`fail`** – ошибка обработки
 ```json
 {
   "uuid": "550e8400-e29b-41d4-a716-446655440000",
@@ -164,15 +115,15 @@ asyncio.run(main())
   "payload": {"typ": "fail", "err": "Не удалось обработать"}
 }
 ```
-Аналогично `done` перезаписывает и уведомляет.
+Аналогично перезаписывает и уведомляет.
 
-> Пакет можно перезаписывать повторно — продлевает TTL и вызывает повторную рассылку.
+Пакет можно перезаписывать повторно – продлевает TTL и вызывает повторную рассылку.
 
 ---
 
 ## Отправка через HTTP QUERY
 
-Метод `QUERY`, не POST/GET.
+Метод `QUERY` (не POST/GET).
 
 ```bash
 curl -X QUERY http://msgw:8000/chat/general \
@@ -184,32 +135,29 @@ curl -X QUERY http://msgw:8000/chat/general \
   }'
 ```
 
-Ответ:
-```json
-{"uuid":"550e8400-...","ttl":3600,"payload":{...}}
-```
-Сообщение сохранено и разослано (фоново). Статус `200 OK`.
+Ответ `200 OK`, идентичный отправленному JSON. Сообщение сохранено и разослано.
 
 ---
 
 ## Reverse proxy с расшифровкой (ECIES)
 
-Доступен только при `MSGW_ECIES_KEY`.
+**Работает только при заданной переменной `MSGW_ECIES_KEY`.**  
+Без ключа маршрут не регистрируется.
 
 ### Как это работает
 
 1. POST на любой путь, например `/api/notify`.
-2. Параметр `upstream` — полный URL бэкенда: `http://backend:8080/real/path`.
+2. Параметр `upstream` – полный URL бэкенда: `http://backend:8080/real/path`.
 3. В теле ищутся `{{токен}}` (≥43 символа base64url без padding), расшифровываются, подставляются.
-4. Запрос перенаправляется на `upstream`, заголовки копируются (кроме `Host` и `Content-Length`, длина пересчитывается).
+4. Запрос перенаправляется на `upstream`, заголовки копируются (кроме `Host` и `Content-Length`).
 
-Путь в запросе к msgw **не передаётся**.
+Путь в запросе к msgw **не передаётся** бэкенду.
 
 ### Query-параметры
 
 - Все, кроме `upstream`, передаются на бэкенд.
 - `upstream` удаляется.
-- При дублировании приоритет у исходных параметров. Не дублируйте.
+- При дублировании приоритет у исходных параметров. Избегайте дублирования.
 
 ### Пример
 
@@ -223,11 +171,9 @@ curl -X POST "http://msgw:8000/api/notify?upstream=http://10.0.1.5:8080/process&
 
 ### Ошибки прокси
 
-- **502 Bad Gateway**  
-  Тело: `Upstream unreachable: [Errno 111] Connection refused`
-- **500 Internal Server Error**  
-  Тело: сообщение исключения.
-- **Неудачная расшифровка** — токен остаётся как есть, запрос уходит на бэкенд. Не ошибка прокси.
+- **502 Bad Gateway** – нет соединения с upstream. Тело: `Upstream unreachable: [Errno 111] Connection refused`
+- **500 Internal Server Error** – внутренняя ошибка. Тело: сообщение исключения.
+- **Неудачная расшифровка** – токен остаётся без изменений, запрос уходит на бэкенд «как есть». Не ошибка прокси.
 
 ---
 
@@ -235,16 +181,15 @@ curl -X POST "http://msgw:8000/api/notify?upstream=http://10.0.1.5:8080/process&
 
 Приватный ключ: 32 байта → URL-safe Base64 без padding (ровно 43 символа).
 
-**Генерация:**
 ```bash
-# Через wg
+# Через wg (WireGuard)
 wg genkey | basenc --base64url -w0 | tr -d '='
 
 # Через openssl
 openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 ```
 
-**Публичный ключ** (для клиентов):
+Публичный ключ для клиентов:
 ```bash
 echo "приватный" | wg pubkey | basenc --base64url -w0 | tr -d '='
 ```
@@ -253,7 +198,7 @@ echo "приватный" | wg pubkey | basenc --base64url -w0 | tr -d '='
 
 ## Сценарии использования
 
-### 1. Чат / уведомления
+### 1. Чат / уведомления в реальном времени
 ```
 +--------+      +----------------+      +-------+
 | Клиент |<---->| MessageCenter  |<---->| Redis |
@@ -277,7 +222,7 @@ echo "приватный" | wg pubkey | basenc --base64url -w0 | tr -d '='
 ```
 A отправляет `send`, B обрабатывает и отвечает `done`. Если B упал, задача ждёт в Redis.
 
-### 3. Прокси с расшифровкой
+### 3. Прокси с прозрачной расшифровкой
 ```
 +--------+       +----------------+       +-----------+
 | Клиент |--POST->| MessageCenter  |--POST->| Backend  |
@@ -287,7 +232,7 @@ A отправляет `send`, B обрабатывает и отвечает `d
 ```
 Клиент шифрует данные публичным ключом, оборачивает в `{{...}}`. msgw расшифровывает, бэкенд получает чистый JSON.
 
-Сценарии 1 и 2 можно комбинировать. При недоступности WebSocket клиент может переключиться на HTTP QUERY.
+Сценарии 1 и 2 можно объединять. При недоступности WebSocket клиент может переключиться на HTTP QUERY.
 
 ---
 
@@ -298,7 +243,7 @@ A отправляет `send`, B обрабатывает и отвечает `d
 | `MSGW_CACHE`              | `mem://`     | Хранилище (`redis://host:port/db`, `mongo://...`). Production – Redis. |
 | `MSGW_CACHE_TTL`          | `3600`       | TTL по умолчанию (сек). |
 | `MSGW_CACHE_BATCH_SIZE`   | `100`        | Ключей на итерацию SCAN (память при старте). |
-| `MSGW_ECIES_KEY`          | (пусто)      | Приватный ключ (43 символа base64url). Не задан → прокси отключён. |
+| `MSGW_ECIES_KEY`          | (пусто)      | Приватный ключ (43 символа base64url). Без него прокси отключён. |
 | `UVICORN_PORT`            | `8000`       | Порт. |
 | `UVICORN_HOST`            | `0.0.0.0`    | Адрес. |
 | `UVICORN_WORKERS`         | `1`          | Воркеры. |
@@ -310,8 +255,4 @@ A отправляет `send`, B обрабатывает и отвечает `d
 
 ---
 
-## Устранение неполадок
-
-- **Нет старых сообщений при подключении** – проверьте Redis и `MSGW_CACHE_BATCH_SIZE`.
-- **Не работает расшифровка** – проверьте `MSGW_ECIES_KEY` (43 символа, URL-safe Base64) и формат токенов.
-- **Контейнер падает** – `docker logs msgw`, обычно проблема с Redis или `MSGW_CACHE`.
+Сервис не требует файлов конфигурации, управляется только ENV, подходит для Docker Compose, K8s, Nomad.
