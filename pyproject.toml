@@ -15,7 +15,6 @@ dependencies = [
     "pydantic-settings>=2.14.1",
     "cryptography>=48.0.0",
     "fastapi-reverse-proxy>=0.2.0",
-    "eciespy>=0.4.6",
 ]
 
 [tool.uv]
