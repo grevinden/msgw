@@ -10,9 +10,12 @@ dependencies = [
     "cashews-mongo>=0.1.0",
     "asyncer>=0.0.17",
     "yarl>=1.23.0",
-    "uv-build>=0.11.11,<0.12",
+    "uv-build>=0.11.13,<0.12",
     "uvicorn[standard]>=0.46.0",
     "pydantic-settings>=2.14.1",
+    "cryptography>=48.0.0",
+    "fastapi-reverse-proxy>=0.2.0",
+    "eciespy>=0.4.6",
 ]
 
 [tool.uv]

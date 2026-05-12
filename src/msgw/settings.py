@@ -1,12 +1,15 @@
+from base64 import urlsafe_b64decode
 from os import environ
 from pathlib import Path
+from re import fullmatch
 from typing import Final , Literal , Annotated , Any , override
 
 import cashews_mongo  # noqa
 import yarl
 from cashews import cache
-from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt , computed_field
-from pydantic_settings import BaseSettings
+from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt , computed_field , SecretStr , SecretBytes , \
+	field_validator
+from pydantic_settings import BaseSettings , SettingsError
 
 NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
 
@@ -22,6 +25,7 @@ class Settings (
 	cache: Annotated [ CashewsUrl , Field ( CashewsUrl ( "mem://" ) ) ]
 	cache_batch_size: Annotated [ PositiveInt , Field ( 1 ) ]
 	cache_ttl: Annotated [ PositiveInt , Field ( 3600 ) ]
+	ecies_key: Annotated [ SecretStr , Field ( None ) ]
 
 	@override
 	def model_post_init ( self , context: Any , / ) -> bool | None :
@@ -44,6 +48,17 @@ class Settings (
 	@computed_field
 	def path_root ( self ) -> Path :
 		return Path ( __file__ ).parent.parent.parent
+
+	@computed_field
+	def ecies_bytes ( self ) -> SecretBytes :
+		return SecretBytes ( urlsafe_b64decode ( self.ecies_key.get_secret_value() + "=" ) )
+
+	@field_validator('ecies_key')
+	@classmethod
+	def ecies_key_validator ( cls , v :SecretStr) -> SecretStr :
+		if not fullmatch(r'[A-Za-z0-9_-]{43}', v.get_secret_value()):
+			raise SettingsError(r'Ключ не соответствует формату [A-Za-z0-9_-]{43}')
+		return v
 
 
 # noinspection PyArgumentList

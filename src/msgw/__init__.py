@@ -1,12 +1,19 @@
+from typing import Annotated
+
+import yarl
 from asyncer import create_task_group
 from cashews.backends.interface import Backend
 from cashews_mongo import MongoBackend
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks , Query
 from fastapi.logger import logger
+from fastapi_reverse_proxy import proxy_pass
+from pydantic import HttpUrl
 from starlette.requests import Request
+from starlette.responses import Response
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
 from .core import app , send_pending_messages , update_bucket
+from .ecies import decrypt_bytes
 from .model import Message
 from .ws import ConnectionManager , ws_conn
 
@@ -42,7 +49,24 @@ async def exchange ( * , w: WebSocket ) -> None :
 			logger.debug ( f"{type ( e )}: {e}" )
 
 
-@app.post ( "/{path:path}" , status_code = 201 )
+@app.api_route ( "/{path:path}" , methods = [ "QUERY" ] )
 async def send ( r: Request , m: Message , t: BackgroundTasks ) -> Message :
 	t.add_task ( process_message , m , r.state.bucket )
 	return m
+
+
+@app.post (
+	"/{path:path}" , response_class = Response , response_model = None ,
+	summary = "Proxy pass" ,
+)  #
+async def proxy_post ( req: Request , upstream: Annotated [ HttpUrl , Query ( ) ] ) :
+	url = yarl.URL ( upstream.unicode_string ( ) )
+	req._url = req.url.remove_query_params ( 'upstream' )
+
+	body = decrypt_bytes ( await req.body ( ) )[0]
+	headers = dict ( req.headers )
+	headers.pop ( "content-length" , None )
+	return await proxy_pass (
+		override_body = body.get_secret_value() ,
+		request = req , path = url.path , override_headers=headers,
+		host = url.origin ( ).human_repr ( ) , )

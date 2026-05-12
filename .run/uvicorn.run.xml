@@ -9,6 +9,7 @@
     <option name="env">
       <map>
         <entry key="MSGW_CACHE" value="redis://127.0.0.1:6379/0 --workers=8 --ws=none" />
+        <entry key="MSGW_ECIES_KEY" value="MI81u6Lo9LWsE3BfMRioX8X-FbmMqkLb8kHXaMqbv0A" />
       </map>
     </option>
     <option name="runType" value="MODULE" />

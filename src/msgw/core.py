@@ -11,6 +11,7 @@ from cashews.backends.interface import Backend
 from cashews.exceptions import CacheError
 from cashews_mongo import MongoBackend , MongoClientSideBackend  # noqa
 from fastapi import FastAPI
+from fastapi_reverse_proxy.proxy_httpx import Proxy
 from pydantic import PositiveInt
 from starlette.websockets import WebSocket
 
@@ -27,10 +28,11 @@ async def lifespan ( app: FastAPI ) :
 	await cache.init ( )
 
 	try :
-		yield {
-			'connections' : ConnectionManager ,
-			'bucket'      : cache ,
-		}
+		async with Proxy ( app ) :
+			yield {
+				'connections' : ConnectionManager ,
+				'bucket'      : cache ,
+			}
 	finally :
 		await cache.close ( )
 
