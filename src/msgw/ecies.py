@@ -45,20 +45,21 @@ def decrypt_x25519_chacha ( encrypted_b64: str , private_key_b64: str ) -> str :
 	return plaintext.decode ( "utf-8" )
 
 
-def decrypt_bytes (
-		*b: bytes , k = Settings.ecies_bytes.get_secret_value ( ) ,
-		p: re.Pattern = re.compile ( r"\{\{([A-Za-z0-9_-]{43,})\}\}" )
-) -> list [ SecretBytes ] :  #
+if Settings.ecies_key :
+	def decrypt_bytes (
+			*b: bytes , k = Settings.ecies_bytes.get_secret_value ( ) ,
+			p: re.Pattern = re.compile ( r"\{\{([A-Za-z0-9_-]{43,})\}\}" )
+	) -> list [ SecretBytes ] :  #
 
-	# Приватный ключ у нас в байтах (32 байта) – переводим в Base64 без паддинга
-	private_b64 = urlsafe_b64encode ( k ).rstrip ( b"=" ).decode ( )
+		# Приватный ключ у нас в байтах (32 байта) – переводим в Base64 без паддинга
+		private_b64 = urlsafe_b64encode ( k ).rstrip ( b"=" ).decode ( )
 
-	def _replace ( match ) :
-		token = match.group ( 1 )
-		try :
-			plain = decrypt_x25519_chacha ( token , private_b64 )
-			return plain
-		except Exception as e :
-			return match.group ( 0 )  # оставляем {{токен}} без изменений
+		def _replace ( match ) :
+			token = match.group ( 1 )
+			try :
+				plain = decrypt_x25519_chacha ( token , private_b64 )
+				return plain
+			except Exception as e :
+				return match.group ( 0 )  # оставляем {{токен}} без изменений
 
-	return [ SecretBytes ( p.sub ( _replace , body.decode ( ) ).encode ( ) ) for body in b ]
+		return [ SecretBytes ( p.sub ( _replace , body.decode ( ) ).encode ( ) ) for body in b ]

@@ -16,9 +16,12 @@ from starlette.responses import Response , PlainTextResponse
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
 from .core import app , send_pending_messages , update_bucket
-from .ecies import decrypt_bytes
+from .settings import Settings
 from .model import Message
 from .ws import ConnectionManager , ws_conn
+
+if Settings.ecies_key :
+	from .ecies import decrypt_bytes
 
 
 @app.exception_handler ( ConnectError )
@@ -74,24 +77,25 @@ async def proxy_lifespan ( apps: FastAPI ) -> AsyncGenerator [ dict [ str , Any 
 		yield { "proxy" : proxy }
 
 
-proxy_router = APIRouter ( lifespan = proxy_lifespan )
+if Settings.ecies_key :
+	proxy_router = APIRouter ( lifespan = proxy_lifespan )
 
 
-@proxy_router.post (
-	"/{path:path}" , response_class = Response , response_model = None ,
-	summary = "Proxy pass" ,
-)  #
-async def proxy_post ( req: Request , upstream: Annotated [ HttpUrl , Query ( ) ] ) :
-	url = yarl.URL ( upstream.unicode_string ( ) )
-	req._url = req.url.remove_query_params ( 'upstream' )
+	@proxy_router.post (
+		"/{path:path}" , response_class = Response , response_model = None ,
+		summary = "Proxy pass" ,
+	)  #
+	async def proxy_post ( req: Request , upstream: Annotated [ HttpUrl , Query ( ) ] ) :
+		url = yarl.URL ( upstream.unicode_string ( ) )
+		req._url = req.url.remove_query_params ( 'upstream' )
 
-	body = decrypt_bytes ( await req.body ( ) ) [ 0 ]
-	headers = dict ( req.headers )
-	headers.pop ( "content-length" , None )
-	return await proxy_pass (
-		override_body = body.get_secret_value ( ) ,
-		request = req , path = url.path , override_headers = headers ,
-		host = url.origin ( ).human_repr ( ) , )
+		body = decrypt_bytes ( await req.body ( ) ) [ 0 ]
+		headers = dict ( req.headers )
+		headers.pop ( "content-length" , None )
+		return await proxy_pass (
+			override_body = body.get_secret_value ( ) ,
+			request = req , path = url.path , override_headers = headers ,
+			host = url.origin ( ).human_repr ( ) , )
 
 
-app.include_router ( proxy_router )
+	app.include_router ( proxy_router )

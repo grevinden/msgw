@@ -17,7 +17,7 @@ NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
 class Settings (
 	BaseSettings ,
 	env_prefix = environ.get ( 'APP' , NAME ).strip ( '_' ) + '_' ,
-	case_sensitive = False ,
+	case_sensitive = False , validate_default=False
 ) :
 	class CashewsUrl ( AnyUrl ) :
 		_constraints = UrlConstraints ( allowed_schemes = [ 'mem' , 'mongo' , 'redis' ] )
@@ -25,7 +25,7 @@ class Settings (
 	cache: Annotated [ CashewsUrl , Field ( CashewsUrl ( "mem://" ) ) ]
 	cache_batch_size: Annotated [ PositiveInt , Field ( 1 ) ]
 	cache_ttl: Annotated [ PositiveInt , Field ( 3600 ) ]
-	ecies_key: Annotated [ SecretStr , Field ( None ) ]
+	ecies_key: Annotated [ SecretStr | None , Field ( None ) ]
 
 	@override
 	def model_post_init ( self , context: Any , / ) -> bool | None :
@@ -50,14 +50,15 @@ class Settings (
 		return Path ( __file__ ).parent.parent.parent
 
 	@computed_field
-	def ecies_bytes ( self ) -> SecretBytes :
-		return SecretBytes ( urlsafe_b64decode ( self.ecies_key.get_secret_value() + "=" ) )
+	def ecies_bytes ( self ) -> SecretBytes | None:
+		if self.ecies_key:
+			return SecretBytes ( urlsafe_b64decode ( self.ecies_key.get_secret_value ( ) + "=" ) )
 
-	@field_validator('ecies_key')
+	@field_validator ( 'ecies_key' )
 	@classmethod
-	def ecies_key_validator ( cls , v :SecretStr) -> SecretStr :
-		if not fullmatch(r'[A-Za-z0-9_-]{43}', v.get_secret_value()):
-			raise SettingsError(r'Ключ не соответствует формату [A-Za-z0-9_-]{43}')
+	def ecies_key_validator ( cls , v: SecretStr ) -> SecretStr :
+		if v and not fullmatch ( r'[A-Za-z0-9_-]{43}' , v.get_secret_value ( ) ) :
+			raise SettingsError ( r'Ключ не соответствует формату [A-Za-z0-9_-]{43}' )
 		return v
 
 
