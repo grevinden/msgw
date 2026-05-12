@@ -16,8 +16,8 @@ from starlette.responses import Response , PlainTextResponse
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
 from .core import app , send_pending_messages , update_bucket
-from .settings import Settings
 from .model import Message
+from .settings import Settings
 from .ws import ConnectionManager , ws_conn
 
 if Settings.ecies_key :
