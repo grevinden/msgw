@@ -15,6 +15,7 @@ from pydantic import PositiveInt , HttpUrl
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema , PydanticCustomError
 from starlette.websockets import WebSocket
+from yarl import URL
 
 from .proxy import health_registry
 from .settings import NAME , Settings
@@ -87,21 +88,21 @@ if __debug__ :
 
 @asynccontextmanager
 async def lifespan ( app: FastAPI ) :
-	await cache.init ( )
-
-	known_hosts = []
-
-	for host in known_hosts :
-		await health_registry.get_or_create_checker ( host )
+	async with create_task_group ( ) as tg :
+		for host in Settings.known_hosts or [ ] :
+			tg.soonify ( await cache.init ) ( )
+			tg.soonify ( health_registry.checker ) (
+				URL ( host.unicode_string ( ) ).origin ( ) )
 
 	try :
 		yield {
 			'connections' : ConnectionManager ,
 			'bucket'      : cache ,
 		}
+
 	finally :
-		await health_registry.cleanup ( )
-		await cache.close ( )
+		async with create_task_group ( ) as tg :
+			tg.soonify ( cache.close ) ( )
 
 
 app = FastAPI (

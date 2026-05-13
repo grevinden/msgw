@@ -8,7 +8,7 @@ import cashews_mongo  # noqa
 import yarl
 from cashews import cache
 from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt , computed_field , SecretStr , SecretBytes , \
-	field_validator
+	field_validator , HttpUrl
 from pydantic_settings import BaseSettings , SettingsError
 
 NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
@@ -17,15 +17,26 @@ NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
 class Settings (
 	BaseSettings ,
 	env_prefix = environ.get ( 'APP' , NAME ).strip ( '_' ) + '_' ,
-	case_sensitive = False , validate_default=False
+	case_sensitive = False , validate_default = False ,
 ) :
 	class CashewsUrl ( AnyUrl ) :
 		_constraints = UrlConstraints ( allowed_schemes = [ 'mem' , 'mongo' , 'redis' ] )
 
 	cache: Annotated [ CashewsUrl , Field ( CashewsUrl ( "mem://" ) ) ]
 	cache_batch_size: Annotated [ PositiveInt , Field ( 1 ) ]
-	cache_ttl: Annotated [ PositiveInt , Field ( 3600 ) ]
-	ecies_key: Annotated [ SecretStr | None , Field ( None ) ]
+	cache_ttl: Annotated [
+		PositiveInt ,
+		Field ( 3600 , description = 'Время жизни кеша, по-умолчанию' )
+	]
+	ecies_key: Annotated [
+		SecretStr | None ,
+		Field ( None , title = 'Ключ шифрования' )
+	]
+	known_hosts: Annotated [
+		list [ HttpUrl ] | None ,
+		Field ( None , description = 'Предустановленный список http-адресов'
+		                             ' для проверки на активность')
+	]
 
 	@override
 	def model_post_init ( self , context: Any , / ) -> bool | None :
@@ -50,8 +61,8 @@ class Settings (
 		return Path ( __file__ ).parent.parent.parent
 
 	@computed_field
-	def ecies_bytes ( self ) -> SecretBytes | None:
-		if self.ecies_key:
+	def ecies_bytes ( self ) -> SecretBytes | None :
+		if self.ecies_key :
 			return SecretBytes ( urlsafe_b64decode ( self.ecies_key.get_secret_value ( ) + "=" ) )
 
 	@field_validator ( 'ecies_key' )
