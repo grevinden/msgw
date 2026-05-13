@@ -14,21 +14,24 @@ from starlette.requests import Request
 from starlette.responses import Response , PlainTextResponse
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
+from .config import settings
 from .core import app , send_pending_messages , update_bucket , QueryFreeHttpUrl
 from .model import Message
 from .proxy import health_registry
-from .settings import Settings , NAME
+from .settings import NAME
 from .ws import ConnectionManager , ws_conn
 
-if Settings.ecies_key :
+if settings.ecies_key :
 	from .ecies import decrypt_bytes
 
 
+# noinspection PyUnusedLocal
 @app.exception_handler ( ConnectError )
 async def exc_httpx ( request: Request , exc: ConnectError ) :
 	return PlainTextResponse ( status_code = 502 , content = str ( exc ) )
 
 
+# noinspection PyUnusedLocal
 @app.exception_handler ( Exception )
 async def exc_httpx ( request: Request , exc: Exception ) :
 	return PlainTextResponse ( status_code = 500 , content = str ( exc ) )
@@ -71,16 +74,17 @@ async def send ( r: Request , m: Message , t: BackgroundTasks ) -> Message :
 	return m
 
 
+# noinspection PyUnusedLocal
 @asynccontextmanager
 async def proxy_lifespan (
-		apps: FastAPI
+		a: FastAPI
 ) -> AsyncGenerator [ dict [ str , Any ] , None ] :  #
 
-	async with Proxy ( app ) as proxy :
-		yield { "proxy" : proxy }
+	async with Proxy ( app ) as p :
+		yield { "proxy" : p }
 
 
-if Settings.ecies_key :
+if settings.ecies_key :
 	proxy_router = APIRouter ( lifespan = proxy_lifespan )
 
 

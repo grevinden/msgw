@@ -35,7 +35,17 @@ class Settings (
 	known_hosts: Annotated [
 		list [ HttpUrl ] | None ,
 		Field ( None , description = 'Предустановленный список http-адресов'
-		                             ' для проверки на активность')
+		                             ' для проверки на активность' )
+	]
+	health_checker_timeout: Annotated [
+		int ,
+		Field ( 2 , description = 'Таймаут проверки доступности'
+		                          ' вышестоящего сервера при проксировании' )
+	]
+	health_checker_interval: Annotated [
+		int ,
+		Field ( 3 , description = 'Интервал проверки проверки доступности'
+		                          ' вышестоящего сервера при проксировании' )
 	]
 
 	@override
@@ -64,14 +74,12 @@ class Settings (
 	def ecies_bytes ( self ) -> SecretBytes | None :
 		if self.ecies_key :
 			return SecretBytes ( urlsafe_b64decode ( self.ecies_key.get_secret_value ( ) + "=" ) )
+		return None
 
+	# noinspection PyNestedDecorators
 	@field_validator ( 'ecies_key' )
 	@classmethod
 	def ecies_key_validator ( cls , v: SecretStr ) -> SecretStr :
 		if v and not fullmatch ( r'[A-Za-z0-9_-]{43}' , v.get_secret_value ( ) ) :
 			raise SettingsError ( r'Ключ не соответствует формату [A-Za-z0-9_-]{43}' )
 		return v
-
-
-# noinspection PyArgumentList
-Settings: Final [ Settings ] = Settings ( )

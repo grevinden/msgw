@@ -6,7 +6,7 @@ from pydantic_core import from_json
 from ulid import ULID
 
 # noinspection PyDataclass
-from .settings import Settings
+from .config import settings
 
 
 # noinspection PyDataclass
@@ -33,7 +33,7 @@ class MessageFail ( BaseModel , frozen = True ) :
 
 # noinspection PyDataclass
 class Message ( BaseModel , frozen = True ) :
-	ttl: Annotated [ PositiveInt , Field ( Settings.cache_ttl ) ]
+	ttl: Annotated [ PositiveInt , Field ( settings.cache_ttl ) ]
 	uuid: Annotated [ UUID4 , Field ( title = "UUID4" ) ]
 	payload: Annotated [
 		MessageSend | MessageDone | MessageFail ,
@@ -61,13 +61,14 @@ class Message ( BaseModel , frozen = True ) :
 		try :
 			return cls.model_validate_json ( text )
 		except Exception as exc :
+			# noinspection PyBroadException
 			try :
 				data = from_json ( text , allow_partial = True )
 				uuid = UUID ( data.get ( "uuid" ) )
-				ttl = int ( data.get ( "ttl" , Settings.cache_ttl ) )
+				ttl = int ( data.get ( "ttl" , settings.cache_ttl ) )
 				return cls.model_validate (
 					{
-						"uuid"    : uuid , ttl : ttl if ttl > 0 else Settings.cache_ttl ,
+						"uuid"    : uuid , ttl : ttl if ttl > 0 else settings.cache_ttl ,
 						"payload" : { "typ" : "fail" , "err" : str ( exc ) } ,
 					} ,
 				)

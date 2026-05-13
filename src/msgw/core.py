@@ -18,10 +18,12 @@ from starlette.websockets import WebSocket
 from yarl import URL
 
 from .proxy import health_registry
-from .settings import NAME , Settings
+from .config import settings
+from .settings import NAME
 from .ws import ConnectionManager , ws_send
 
 logger: Final [ Logger ] = getLogger ( "uvicorn" )
+
 if __debug__ :
 	logger.setLevel ( DEBUG )
 
@@ -86,10 +88,11 @@ if __debug__ :
 			return json_schema
 
 
+# noinspection PyUnusedLocal
 @asynccontextmanager
-async def lifespan ( app: FastAPI ) :
+async def lifespan ( a: FastAPI ) :
 	async with create_task_group ( ) as tg :
-		for host in Settings.known_hosts or [ ] :
+		for host in settings.known_hosts or [ ] :
 			tg.soonify ( await cache.init ) ( )
 			tg.soonify ( health_registry.checker ) (
 				URL ( host.unicode_string ( ) ).origin ( ) )
@@ -114,15 +117,16 @@ app = FastAPI (
 	description = '\n'.join (
 		[
 			r'[reDoc](/) | [Swagger](/docs)' ,
-			(Settings.path_root / 'README.md')
+			(settings.path_root / 'README.md')
 			.read_text ( encoding = 'utf-8-sig' ).strip ( )
 		] ,
 	) ,
 )
 
 
+# noinspection PyUnusedLocal
 async def update_bucket (
-		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = Settings.cache_ttl
+		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = settings.cache_ttl
 ) -> str | None :  #
 	await b.set ( key = k , value = v , expire = l )
 	if result := cast ( str | None , await b.get ( key = k , default = None ) ) :
@@ -138,5 +142,5 @@ async def send_pending_message ( w: WebSocket , b: Backend , k: str ) -> None :
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
 	async with create_task_group ( ) as tg :
-		async for k in b.scan ( "*" , batch_size = Settings.cache_batch_size ) :
+		async for k in b.scan ( "*" , batch_size = settings.cache_batch_size ) :
 			tg.soonify ( shield ) ( send_pending_message ( w , b , k ) )
