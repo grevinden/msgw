@@ -5,19 +5,19 @@ import yarl
 from asyncer import create_task_group
 from cashews.backends.interface import Backend
 from cashews_mongo import MongoBackend
-from fastapi import BackgroundTasks , Query , APIRouter , FastAPI
+from fastapi import BackgroundTasks , Query , APIRouter , FastAPI , HTTPException
 from fastapi.logger import logger
 from fastapi_reverse_proxy import proxy_pass
 from fastapi_reverse_proxy.proxy_httpx import Proxy
 from httpx import ConnectError
-from pydantic import HttpUrl
 from starlette.requests import Request
 from starlette.responses import Response , PlainTextResponse
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
-from .core import app , send_pending_messages , update_bucket
+from .core import app , send_pending_messages , update_bucket , QueryFreeHttpUrl
 from .model import Message
-from .settings import Settings
+from .proxy import health_registry
+from .settings import Settings , NAME
 from .ws import ConnectionManager , ws_conn
 
 if Settings.ecies_key :
@@ -72,7 +72,10 @@ async def send ( r: Request , m: Message , t: BackgroundTasks ) -> Message :
 
 
 @asynccontextmanager
-async def proxy_lifespan ( apps: FastAPI ) -> AsyncGenerator [ dict [ str , Any ] , Any ] :
+async def proxy_lifespan (
+		apps: FastAPI
+) -> AsyncGenerator [ dict [ str , Any ] , None ] :  #
+
 	async with Proxy ( app ) as proxy :
 		yield { "proxy" : proxy }
 
@@ -82,19 +85,37 @@ if Settings.ecies_key :
 
 
 	@proxy_router.post (
-		"/{path:path}" , response_class = Response , response_model = None ,
+		"/{path:path}" ,
+		response_class = Response ,
+		response_model = None ,
 		summary = "Proxy pass" ,
 	)  #
-	async def proxy_post ( req: Request , upstream: Annotated [ HttpUrl , Query ( ) ] ) :
-		url = yarl.URL ( upstream.unicode_string ( ) )
-		req._url = req.url.remove_query_params ( 'upstream' )
+	async def proxy_post (
+			req: Request , res: Response , upstream: Annotated [
+				QueryFreeHttpUrl , Query ( ) ] ) :  #
 
+		url = yarl.URL ( upstream.unicode_string ( ) )
+		origin = url.origin ( )
+
+		checker = await health_registry.checker ( origin )
+		if not checker.is_healthy ( origin.human_repr ( ) ) :
+			raise HTTPException (
+				status_code = 503 ,
+				detail = f"Backend not healthy: {origin.human_repr ( )}" ,
+				headers = {
+					"Retry-After"       : str ( checker.interval ) ,
+					"X-Upstream-Status" : "unhealthy"
+				} )
+		else :
+			res.headers.append ( "X-Upstream-Status" , "healthy" )
+
+		req.url.remove_query_params ( 'upstream' )
 		body = decrypt_bytes ( await req.body ( ) ) [ 0 ]
-		headers = dict ( req.headers )
-		headers.pop ( "content-length" , None )
+		headers = req.headers.mutablecopy ( )
+		del headers [ "content-length" ]
 		return await proxy_pass (
 			override_body = body.get_secret_value ( ) ,
-			request = req , path = url.path , override_headers = headers ,
+			request = req , path = url.path , override_headers = dict ( headers ) ,
 			host = url.origin ( ).human_repr ( ) , )
 
 

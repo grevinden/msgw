@@ -3,7 +3,7 @@ from __future__ import annotations
 from asyncio import shield
 from contextlib import asynccontextmanager
 from logging import getLogger , Logger , DEBUG
-from typing import Literal , Final , cast
+from typing import Literal , Final , cast , Any
 
 from asyncer import create_task_group
 from cashews import cache
@@ -11,9 +11,12 @@ from cashews.backends.interface import Backend
 from cashews.exceptions import CacheError
 from cashews_mongo import MongoBackend , MongoClientSideBackend  # noqa
 from fastapi import FastAPI
-from pydantic import PositiveInt
+from pydantic import PositiveInt , HttpUrl
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema , PydanticCustomError
 from starlette.websockets import WebSocket
 
+from .proxy import health_registry
 from .settings import NAME , Settings
 from .ws import ConnectionManager , ws_send
 
@@ -22,9 +25,74 @@ if __debug__ :
 	logger.setLevel ( DEBUG )
 
 
+	class QueryFreeHttpUrl ( HttpUrl ) :
+		"""URL тип, запрещающий query-параметры
+
+		Примеры валидных URL:
+		- https://example.com/api
+		- http://localhost:8000/path/to/resource
+
+		Невалидные URL:
+		- https://example.com/api?foo=bar
+		- http://localhost:8000/path?param=value
+		"""
+
+		@classmethod
+		def __get_pydantic_core_schema__ (
+				cls , source_type: Any , handler
+		) -> core_schema.CoreSchema :
+			schema = HttpUrl.__get_pydantic_core_schema__ ( source_type , handler )
+
+			validated_schema = core_schema.no_info_after_validator_function (
+				cls._validate_no_query ,
+				schema ,
+			)
+
+			return validated_schema
+
+		@classmethod
+		def _validate_no_query ( cls , url: HttpUrl ) -> HttpUrl :
+			if url.query :
+				raise PydanticCustomError (
+					'query_forbidden' ,
+					'Query parameters are not allowed: {query}' ,
+					{ 'query' : url.query } ,
+				)
+			return url
+
+		@classmethod
+		def __get_pydantic_json_schema__ (
+				cls , schema: core_schema.CoreSchema , handler
+		) -> JsonSchemaValue :
+			json_schema = handler ( schema )
+
+			# Расширенное описание для Swagger/OpenAPI
+			json_schema.update ( {
+				'title'       : 'Query-Free URL' ,
+				'description' : (
+					'**IMPORTANT**: This URL must NOT contain query parameters.\n\n'
+					'Valid: `https://api.example.com/v1/users`\n\n'
+					'Invalid: `https://api.example.com/v1/users?page=1`\n\n'
+					'Query parameters should be passed via request body or headers.'
+				) ,
+				'examples'    : [
+					'https://api.example.com/v1/users' ,
+					'https://example.com/resource/123' ,
+				] ,
+				'format'      : 'uri' ,
+			} )
+
+			return json_schema
+
+
 @asynccontextmanager
 async def lifespan ( app: FastAPI ) :
 	await cache.init ( )
+
+	known_hosts = []
+
+	for host in known_hosts :
+		await health_registry.get_or_create_checker ( host )
 
 	try :
 		yield {
@@ -32,6 +100,7 @@ async def lifespan ( app: FastAPI ) :
 			'bucket'      : cache ,
 		}
 	finally :
+		await health_registry.cleanup ( )
 		await cache.close ( )
 
 
