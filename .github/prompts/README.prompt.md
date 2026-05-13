@@ -65,6 +65,7 @@
 - Столбцы: Переменная, По умолчанию, Назначение.
 - Строки: `MSGW_CACHE`, `MSGW_CACHE_TTL`, `MSGW_CACHE_BATCH_SIZE`, `MSGW_ECIES_KEY`, `UVICORN_PORT`, `UVICORN_HOST`, `UVICORN_WORKERS`, `UVICORN_LOG_LEVEL`, `UVICORN_WS_PING_INTERVAL`, `UVICORN_WS_PING_TIMEOUT`.
 - Краткие, но понятные описания.
+- описывай все переменные которые знаешь
 
 ### 10. Устранение неполадок: раздел не нужен
 

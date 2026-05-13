@@ -18,7 +18,7 @@ from starlette.websockets import WebSocket
 from yarl import URL
 
 from .proxy import health_registry
-from .config import settings
+from .config import settings , header_system_id
 from .settings import NAME
 from .ws import ConnectionManager , ws_send
 
@@ -114,6 +114,7 @@ app = FastAPI (
 	version = 'made@getter.pro' ,
 	redoc_url = '/' ,
 	docs_url = '/docs' ,
+	headers = header_system_id,
 	description = '\n'.join (
 		[
 			r'[reDoc](/) | [Swagger](/docs)' ,

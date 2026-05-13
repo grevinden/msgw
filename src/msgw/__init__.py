@@ -6,6 +6,7 @@ from asyncer import create_task_group
 from cashews.backends.interface import Backend
 from cashews_mongo import MongoBackend
 from fastapi import BackgroundTasks , Query , APIRouter , FastAPI , HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.logger import logger
 from fastapi_reverse_proxy import proxy_pass
 from fastapi_reverse_proxy.proxy_httpx import Proxy
@@ -14,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import Response , PlainTextResponse
 from starlette.websockets import WebSocket , WebSocketDisconnect
 
-from .config import settings
+from .config import settings , header_system_id
 from .core import app , send_pending_messages , update_bucket , QueryFreeHttpUrl
 from .model import Message
 from .proxy import health_registry
@@ -28,13 +29,24 @@ if settings.ecies_key :
 # noinspection PyUnusedLocal
 @app.exception_handler ( ConnectError )
 async def exc_httpx ( request: Request , exc: ConnectError ) :
-	return PlainTextResponse ( status_code = 502 , content = str ( exc ) )
+	return PlainTextResponse ( status_code = 502 ,
+	                           content = str ( exc ) ,
+	                           headers = header_system_id )
+
+
+@app.exception_handler ( RequestValidationError )
+async def err_422 ( request: Request , exc: RequestValidationError ) :
+	return PlainTextResponse ( status_code = 422 ,
+	                           content = str ( exc ) ,
+	                           headers = header_system_id )
 
 
 # noinspection PyUnusedLocal
 @app.exception_handler ( Exception )
-async def exc_httpx ( request: Request , exc: Exception ) :
-	return PlainTextResponse ( status_code = 500 , content = str ( exc ) )
+async def exc_default ( request: Request , exc: Exception ) :
+	return PlainTextResponse ( status_code = 500 ,
+	                           content = str ( exc ) ,
+	                           headers = header_system_id )
 
 
 async def exchange_prepare ( w: WebSocket , / ) -> MongoBackend :
@@ -111,16 +123,20 @@ if settings.ecies_key :
 					"X-Upstream-Status" : "unhealthy"
 				} )
 		else :
-			res.headers.append ( "X-Upstream-Status" , "healthy" )
-
-		req.url.remove_query_params ( 'upstream' )
-		body = decrypt_bytes ( await req.body ( ) ) [ 0 ]
-		headers = req.headers.mutablecopy ( )
-		del headers [ "content-length" ]
-		return await proxy_pass (
-			override_body = body.get_secret_value ( ) ,
-			request = req , path = url.path , override_headers = dict ( headers ) ,
-			host = url.origin ( ).human_repr ( ) , )
+			req.url.remove_query_params ( 'upstream' )
+			body = decrypt_bytes ( await req.body ( ) ) [ 0 ]
+			headers = req.headers.mutablecopy ( )
+			del headers [ "content-length" ]
+			result = await proxy_pass (
+				override_body = body.get_secret_value ( ) ,
+				request = req , path = url.path ,
+				override_headers = dict ( headers ) | {
+					'X-System-ID' : 'upstream'
+				} ,
+				host = url.origin ( ).human_repr ( ) , )
+			result.headers.update ( { "X-System-ID" : "upstream" } )
+			result.headers.update ( { "X-Upstream-Status" : "healthy" } )
+			return result
 
 
 	app.include_router ( proxy_router )
