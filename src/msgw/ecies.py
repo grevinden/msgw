@@ -26,7 +26,7 @@ def decrypt_x25519_chacha ( encrypted_b64: str , private_key_b64: str ) -> str :
 
 if settings.ecies.key :
 	def decrypt_bytes (
-			*b: bytes , k = settings.ecies.key.get_secret_value ( ) ,
+			*b: bytes , k = settings.ecies.bytes ,
 			p: re.Pattern = re.compile ( r"[{]{2}([A-Z0-9_-]{43,})[}]{2}" ,
 			                             flags = re.IGNORECASE | re.UNICODE )
 	) -> list [ SecretBytes ] :  #

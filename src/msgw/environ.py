@@ -65,10 +65,14 @@ class Settings (
 			return v
 
 		@computed_field
-		def key_bytes ( self ) -> SecretBytes | None :
+		def bytes ( self ) -> SecretBytes | None :
 			if self.key :
 				return SecretBytes ( urlsafe_b64decode ( self.key.get_secret_value ( ) + "=" ) )
 			return None
+
+		@computed_field
+		def enabled ( self ) -> bool :
+			return bool ( self.key )
 
 	ecies: Annotated [ Ecies , Field ( default_factory = Ecies ) ]
 
@@ -78,6 +82,10 @@ class Settings (
 			Field ( None , description = 'Предустановленный список http-адресов'
 			                             ' для проверки на активность' )
 		]
+
+		@computed_field
+		def enabled ( self ) -> bool :
+			return bool ( self.hosts )
 
 	proxy: Annotated [ Proxy , Field ( default_factory = Proxy ) ]
 
@@ -93,6 +101,10 @@ class Settings (
 			                          ' вышестоящего сервера при проксировании' )
 		]
 
+		@computed_field
+		def enabled ( self ) -> bool :
+			return bool ( self.timeout ) and bool(self.interval)
+
 	health: Annotated [ Health , Field ( default_factory = Health ) ]
 
 	class LLM ( BaseModel ) :
@@ -105,6 +117,10 @@ class Settings (
 				SecretStr | None ,
 				Field ( None , description = "API Key for LLM provider" )
 			]
+
+		@computed_field
+		def enabled ( self ) -> bool :
+			return bool ( self.api.key ) and bool ( self.api.url )
 
 		api: Annotated [ API , Field ( default_factory = API ) ]
 
