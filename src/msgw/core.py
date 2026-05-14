@@ -19,7 +19,7 @@ from yarl import URL
 
 from .config import settings , header_system_id
 from .environ import NAME
-from .llm import ask_llm
+
 from .model import DebugRequest
 from .proxy import health_registry
 from .ws import ConnectionManager , ws_send
@@ -126,14 +126,17 @@ app = FastAPI (
 	) ,
 )
 
+if settings.llm.enabled:
+	from .llm import ask_llm
 
-@app.post ( "/api/llm" )
-async def api_llm ( req: DebugRequest ) :
-	"""
-	Принимает текст ошибки и вопрос, отправляет в LLM и возвращает ответ.
-	"""
-	answer = await ask_llm ( req.error , req.prompt )
-	return { "answer" : answer }
+
+	@app.post ( "/api/llm" )
+	async def api_llm ( req: DebugRequest ) :
+		"""
+		Принимает текст ошибки и вопрос, отправляет в LLM и возвращает ответ.
+		"""
+		answer = await ask_llm ( req.error , req.prompt )
+		return { "answer" : answer }
 
 
 # noinspection PyUnusedLocal
