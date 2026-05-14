@@ -19,8 +19,8 @@ class HealthCheckerRegistry :
 		self._checkers = { }
 		self._lock = asyncio.Lock ( )
 		self._client = httpx.AsyncClient (
-			timeout = Timeout (settings.health_checker_timeout,
-			                   connect = settings.health_checker_timeout ) )
+			timeout = Timeout (settings.health.timeout,
+			                   connect = settings.health.timeout ) )
 
 	@property
 	def checkers ( self ) -> dict [ URL , HealthChecker ] :
@@ -31,8 +31,8 @@ class HealthCheckerRegistry :
 		if host not in self.checkers :
 			self.checkers [ host ] = HealthChecker (
 				targets = [ host.human_repr ( ) ] ,
-				interval = settings.health_checker_interval ,
-				timeout = settings.health_checker_timeout ,
+				interval = settings.health.interval ,
+				timeout = settings.health.timeout ,
 				httpx_client = self._client ,  # Передаём общий клиент
 			)
 

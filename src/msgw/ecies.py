@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey , X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.utils import Buffer
 from pydantic import SecretBytes
 
 from .config import settings
@@ -23,15 +24,15 @@ def decrypt_x25519_chacha ( encrypted_b64: str , private_key_b64: str ) -> str :
 		encrypted [ 32 :44 ] , encrypted [ 44 : ] , None ).decode ( "utf-8" )
 
 
-if settings.ecies_key :
+if settings.ecies.key :
 	def decrypt_bytes (
-			*b: bytes , k = settings.ecies_bytes.get_secret_value ( ) ,
+			*b: bytes , k = settings.ecies.key.get_secret_value ( ) ,
 			p: re.Pattern = re.compile ( r"[{]{2}([A-Z0-9_-]{43,})[}]{2}" ,
 			                             flags = re.IGNORECASE | re.UNICODE )
 	) -> list [ SecretBytes ] :  #
 
 		# Приватный ключ у нас в байтах (32 байта) – переводим в Base64 без паддинга
-		private_b64 = urlsafe_b64encode ( k ).rstrip ( b"=" ).decode ( )
+		private_b64 = urlsafe_b64encode ( Buffer(k) ).rstrip ( b"=" ).decode ( )
 
 		def _replace ( match ) :
 			token = match.group ( 1 )

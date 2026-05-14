@@ -17,12 +17,12 @@ from starlette.websockets import WebSocket , WebSocketDisconnect
 
 from .config import settings , header_system_id
 from .core import app , send_pending_messages , update_bucket , QueryFreeHttpUrl
+from .environ import NAME
 from .model import Message
 from .proxy import health_registry
-from .settings import NAME
 from .ws import ConnectionManager , ws_conn
 
-if settings.ecies_key :
+if settings.ecies.key :
 	from .ecies import decrypt_bytes
 
 
@@ -34,6 +34,7 @@ async def exc_httpx ( request: Request , exc: ConnectError ) :
 	                           headers = header_system_id )
 
 
+# noinspection PyUnusedLocal
 @app.exception_handler ( RequestValidationError )
 async def err_422 ( request: Request , exc: RequestValidationError ) :
 	return PlainTextResponse ( status_code = 422 ,
@@ -96,16 +97,17 @@ async def proxy_lifespan (
 		yield { "proxy" : p }
 
 
-if settings.ecies_key :
+if settings.ecies.key :
 	proxy_router = APIRouter ( lifespan = proxy_lifespan )
 
 
+	# noinspection PyUnusedLocal
 	@proxy_router.post (
 		"/{path:path}" ,
 		response_class = Response ,
 		response_model = None ,
 		summary = "Proxy pass" ,
-	)  #
+	)
 	async def proxy_post (
 			req: Request , res: Response , upstream: Annotated [
 				QueryFreeHttpUrl , Query ( ) ] ) :  #

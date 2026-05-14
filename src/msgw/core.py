@@ -17,9 +17,11 @@ from pydantic_core import core_schema , PydanticCustomError
 from starlette.websockets import WebSocket
 from yarl import URL
 
-from .proxy import health_registry
 from .config import settings , header_system_id
-from .settings import NAME
+from .environ import NAME
+from .llm import ask_llm
+from .model import DebugRequest
+from .proxy import health_registry
 from .ws import ConnectionManager , ws_send
 
 logger: Final [ Logger ] = getLogger ( "uvicorn" )
@@ -92,7 +94,7 @@ if __debug__ :
 @asynccontextmanager
 async def lifespan ( a: FastAPI ) :
 	async with create_task_group ( ) as tg :
-		for host in settings.known_hosts or [ ] :
+		for host in settings.proxy.hosts or [ ] :
 			tg.soonify ( await cache.init ) ( )
 			tg.soonify ( health_registry.checker ) (
 				URL ( host.unicode_string ( ) ).origin ( ) )
@@ -114,21 +116,31 @@ app = FastAPI (
 	version = 'made@getter.pro' ,
 	redoc_url = '/' ,
 	docs_url = '/docs' ,
-	headers = header_system_id,
+	headers = header_system_id ,
 	description = '\n'.join (
 		[
 			r'[reDoc](/) | [Swagger](/docs)' ,
-			(settings.path_root / 'README.md')
+			(settings.path.root / 'README.md')
 			.read_text ( encoding = 'utf-8-sig' ).strip ( )
 		] ,
 	) ,
 )
 
 
+@app.post ( "/api/llm" )
+async def api_llm ( req: DebugRequest ) :
+	"""
+	Принимает текст ошибки и вопрос, отправляет в LLM и возвращает ответ.
+	"""
+	answer = await ask_llm ( req.error , req.prompt )
+	return { "answer" : answer }
+
+
 # noinspection PyUnusedLocal
 async def update_bucket (
-		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = settings.cache_ttl
+		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = settings.cache.ttl
 ) -> str | None :  #
+
 	await b.set ( key = k , value = v , expire = l )
 	if result := cast ( str | None , await b.get ( key = k , default = None ) ) :
 		return result
@@ -143,5 +155,5 @@ async def send_pending_message ( w: WebSocket , b: Backend , k: str ) -> None :
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
 	async with create_task_group ( ) as tg :
-		async for k in b.scan ( "*" , batch_size = settings.cache_batch_size ) :
+		async for k in b.scan ( "*" , batch_size = settings.cache.batch_size ) :
 			tg.soonify ( shield ) ( send_pending_message ( w , b , k ) )

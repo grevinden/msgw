@@ -33,7 +33,7 @@ class MessageFail ( BaseModel , frozen = True ) :
 
 # noinspection PyDataclass
 class Message ( BaseModel , frozen = True ) :
-	ttl: Annotated [ PositiveInt , Field ( settings.cache_ttl ) ]
+	ttl: Annotated [ PositiveInt , Field ( settings.cache.ttl ) ]
 	uuid: Annotated [ UUID4 , Field ( title = "UUID4" ) ]
 	payload: Annotated [
 		MessageSend | MessageDone | MessageFail ,
@@ -65,12 +65,17 @@ class Message ( BaseModel , frozen = True ) :
 			try :
 				data = from_json ( text , allow_partial = True )
 				uuid = UUID ( data.get ( "uuid" ) )
-				ttl = int ( data.get ( "ttl" , settings.cache_ttl ) )
+				ttl = int ( data.get ( "ttl" , settings.cache.ttl ) )
 				return cls.model_validate (
 					{
-						"uuid"    : uuid , ttl : ttl if ttl > 0 else settings.cache_ttl ,
+						"uuid"    : uuid , ttl : ttl if ttl > 0 else settings.cache.ttl ,
 						"payload" : { "typ" : "fail" , "err" : str ( exc ) } ,
 					} ,
 				)
 			except Exception :
 				return None
+
+
+class DebugRequest ( BaseModel ) :
+	error: str
+	prompt: str
