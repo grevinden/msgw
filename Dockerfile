@@ -35,7 +35,7 @@ UVICORN_WS_PER_MESSAGE_DEFLATE=1
 ENV \
 APP=MSGW \
 # URL для хранилища кеша (mem://, mongo://..., redis://...)
-MSGW_CACHE="mem://?check_interval=1" \
+MSGW_CACHE_URL="mem://?check_interval=1" \
 # количество ключей, обрабатываемых за раз при сканировании
 MSGW_CACHE_BATCH_SIZE=100 \
 # время жизни ключей (в секундах) по-умолчанию
