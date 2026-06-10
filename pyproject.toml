@@ -3,19 +3,18 @@ name = "msgw"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.136.1",
+    "fastapi",
     "pydantic[email]",
     "pydantic-extra-types[all]",
     "cashews[dill,diskcache,speedup,redis]>=7.5.0",
     "cashews-mongo>=0.1.0",
-    "asyncer>=0.0.17",
-    "yarl>=1.23.0",
+    "asyncer",
+    "yarl",
     "uv-build>=0.11.14,<0.12",
     "uvicorn[standard]>=0.46.0",
     "pydantic-settings>=2.14.1",
-    "cryptography>=48.0.0",
-    "fastapi-reverse-proxy>=0.2.0",
-    "litellm>=1.84.0",
+    "cryptography",
+    "fastapi-reverse-proxy",
 ]
 
 [tool.uv]

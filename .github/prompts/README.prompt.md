@@ -1,4 +1,4 @@
-отвечай на русском языке, используй максимально короткие формулировки, меньше текста, больше примеров, не пропускай задания запроса
+Отвечай на русском языке, используй максимально короткие формулировки, меньше текста, больше примеров, не пропускай задания запроса
 
 # Промпт для генерации README.md проекта MessageCenter
 
@@ -63,7 +63,7 @@
 
 ### 9. Переменные окружения (таблица)
 - Столбцы: Переменная, По умолчанию, Назначение.
-- Строки: `MSGW_CACHE`, `MSGW_CACHE_TTL`, `MSGW_CACHE_BATCH_SIZE`, `MSGW_ECIES_KEY`, `UVICORN_PORT`, `UVICORN_HOST`, `UVICORN_WORKERS`, `UVICORN_LOG_LEVEL`, `UVICORN_WS_PING_INTERVAL`, `UVICORN_WS_PING_TIMEOUT`.
+- Строки: `MSGW_CACHE_URL`, `MSGW_CACHE_TTL`, `MSGW_CACHE_BATCH_SIZE`, `MSGW_ECIES_KEY`, `UVICORN_PORT`, `UVICORN_HOST`, `UVICORN_WORKERS`, `UVICORN_LOG_LEVEL`, `UVICORN_WS_PING_INTERVAL`, `UVICORN_WS_PING_TIMEOUT`.
 - Краткие, но понятные описания.
 - описывай все переменные которые знаешь
 

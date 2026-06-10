@@ -108,7 +108,7 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
 ## 5. Example Usage Scenarios
 
 -   **Sending a Message:**
-    ```python
+    ```text
     # Via HTTP QUERY
     curl -X QUERY http://localhost:8000/chat -d '{"uuid":"...", "ttl":60, "payload":{"typ":"send", "top":"url", "mes":"secret"}}'
     ```
@@ -118,7 +118,7 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
     # Server decrypts blob and forwards: {"token": "plain_text_value"}
     ```
 -   **Debugging with LLM:**
-    ```python
+    ```text
     # POST /api/llm
     {"error": "KeyError: 'id'", "prompt": "Fix this dict access"}
     ```

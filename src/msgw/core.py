@@ -19,8 +19,6 @@ from yarl import URL
 
 from .config import settings , header_system_id
 from .environ import NAME
-
-from .model import DebugRequest
 from .proxy import health_registry
 from .ws import ConnectionManager , ws_send
 
@@ -44,7 +42,7 @@ if __debug__ :
 
 		@classmethod
 		def __get_pydantic_core_schema__ (
-				cls , source_type: Any , handler
+			cls , source_type: Any , handler
 		) -> core_schema.CoreSchema :
 			schema = HttpUrl.__get_pydantic_core_schema__ ( source_type , handler )
 
@@ -67,7 +65,7 @@ if __debug__ :
 
 		@classmethod
 		def __get_pydantic_json_schema__ (
-				cls , schema: core_schema.CoreSchema , handler
+			cls , schema: core_schema.CoreSchema , handler
 		) -> JsonSchemaValue :
 			json_schema = handler ( schema )
 
@@ -126,22 +124,10 @@ app = FastAPI (
 	) ,
 )
 
-if settings.llm.enabled:
-	from .llm import ask_llm
-
-
-	@app.post ( "/api/llm" )
-	async def api_llm ( req: DebugRequest ) :
-		"""
-		Принимает текст ошибки и вопрос, отправляет в LLM и возвращает ответ.
-		"""
-		answer = await ask_llm ( req.error , req.prompt )
-		return { "answer" : answer }
-
 
 # noinspection PyUnusedLocal
 async def update_bucket (
-		b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = settings.cache.ttl
+	b: Backend , t: Literal [ "notify" , "receipt" ] , k: str , v: str , l: PositiveInt = settings.cache.ttl
 ) -> str | None :  #
 
 	await b.set ( key = k , value = v , expire = l )

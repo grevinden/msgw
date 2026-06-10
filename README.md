@@ -76,13 +76,18 @@ c.WriteJSON(msg)
 
 **Python (websockets)**
 ```python
-async with websockets.connect("ws://msgw:8000/chat/general") as ws:
-    await ws.send(json.dumps({
-        "uuid": str(uuid.uuid4()), "ttl": 3600,
-        "payload": {"typ":"send","top":"https://t.me/example","mes":"Привет"}
-    }))
-    async for msg in ws:
-        print(json.loads(msg))
+import websockets, json, uuid
+
+async def _():
+
+  async with websockets.connect("ws://msgw:8000/chat/general") as ws:
+      await ws.send(json.dumps({
+          "uuid": str(uuid.uuid4()), "ttl": 3600,
+          "payload": {"typ":"send","top":"https://t.me/example","mes":"Привет"}
+      }))
+      async for msg in ws:
+          print(json.loads(msg))
+
 ```
 
 ### Типы пакетов
@@ -249,7 +254,7 @@ A отправляет `send`, B обрабатывает и отвечает `d
                       |
                  Приватный ключ
 ```
-Клиент шифрует данные публичным ключом, оборачивает в `{{...}}`. msgw расшифровывает, бэкенд получает чистый JSON.
+Клиент шифрует данные публичным ключом, оборачивает в `{{...}}`. MSGW расшифровывает, бэкенд получает чистый JSON.
 
 Сценарии 1 и 2 можно объединять. При недоступности WebSocket клиент может переключиться на HTTP QUERY.
 
@@ -257,18 +262,18 @@ A отправляет `send`, B обрабатывает и отвечает `d
 
 ## Переменные окружения
 
-| Переменная                | По умолчанию | Назначение |
-|---------------------------|--------------|------------|
-| `MSGW_CACHE`              | `mem://`     | Хранилище (`redis://host:port/db`, `mongo://...`). Production – Redis. |
-| `MSGW_CACHE_TTL`          | `3600`       | TTL по умолчанию (сек). |
-| `MSGW_CACHE_BATCH_SIZE`   | `100`        | Ключей на итерацию SCAN (память при старте). |
-| `MSGW_ECIES_KEY`          | (пусто)      | Приватный ключ (43 символа base64url). Без него прокси отключён. |
-| `UVICORN_PORT`            | `8000`       | Порт. |
-| `UVICORN_HOST`            | `0.0.0.0`    | Адрес. |
-| `UVICORN_WORKERS`         | `1`          | Воркеры. |
-| `UVICORN_LOG_LEVEL`       | `info`       | Уровень логирования. |
-| `UVICORN_WS_PING_INTERVAL`| `3`          | Пинг WebSocket (сек). |
-| `UVICORN_WS_PING_TIMEOUT` | `2`          | Таймаут понга (сек). |
+| Переменная                 | По умолчанию | Назначение                                                             |
+|----------------------------|--------------|------------------------------------------------------------------------|
+| `MSGW_CACHE_URL`           | `mem://`     | Хранилище (`redis://host:port/db`, `mongo://...`). Production – Redis. |
+| `MSGW_CACHE_TTL`           | `3600`       | TTL по умолчанию (сек).                                                |
+| `MSGW_CACHE_BATCH_SIZE`    | `100`        | Ключей на итерацию SCAN (память при старте).                           |
+| `MSGW_ECIES_KEY`           | (пусто)      | Приватный ключ (43 символа base64url). Без него прокси отключён.       |
+| `UVICORN_PORT`             | `8000`       | Порт.                                                                  |
+| `UVICORN_HOST`             | `0.0.0.0`    | Адрес.                                                                 |
+| `UVICORN_WORKERS`          | `1`          | Воркеры.                                                               |
+| `UVICORN_LOG_LEVEL`        | `info`       | Уровень логирования.                                                   |
+| `UVICORN_WS_PING_INTERVAL` | `3`          | Пинг WebSocket (сек).                                                  |
+| `UVICORN_WS_PING_TIMEOUT`  | `2`          | Таймаут понга (сек).                                                   |
 
 Поддерживаются все переменные Uvicorn.
 

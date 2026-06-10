@@ -107,30 +107,6 @@ class Settings (
 
 	health: Annotated [ Health , Field ( default_factory = Health ) ]
 
-	class LLM ( BaseModel ) :
-		class API ( BaseModel ) :
-			url: Annotated [
-				HttpUrl | None ,
-				Field ( None , description = "Base URL for LLM API (e.g., https://openrouter.ai/api/v1)" )
-			]
-			key: Annotated [
-				SecretStr | None ,
-				Field ( None , description = "API Key for LLM provider" )
-			]
-
-		@computed_field
-		def enabled ( self ) -> bool :
-			return bool ( self.api.key ) and bool ( self.api.url )
-
-		api: Annotated [ API , Field ( default_factory = API ) ]
-
-		model: Annotated [
-			str ,
-			Field ( None , description = "Model ID (e.g., openrouter/anthropic/claude-3-haiku)" )
-		]
-
-	llm: Annotated [ LLM , Field ( default_factory = LLM ) ]
-
 	class AppPath ( BaseModel ) :
 		@computed_field
 		def root ( self ) -> Path :
