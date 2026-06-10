@@ -5,8 +5,6 @@ from fastapi_reverse_proxy import HealthChecker
 from httpx import Timeout
 from yarl import URL
 
-from .config import settings
-
 
 class HealthCheckerRegistry :
 	"""
@@ -18,8 +16,7 @@ class HealthCheckerRegistry :
 		self._checkers = { }
 		self._lock = asyncio.Lock ( )
 		self._client = httpx.AsyncClient (
-			timeout = Timeout ( settings.health.timeout ,
-			                    connect = settings.health.timeout ) )
+			timeout = Timeout ( 3 , connect = 3 ) )
 
 	@property
 	def checkers ( self ) -> dict [ URL , HealthChecker ] :

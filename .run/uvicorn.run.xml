@@ -8,14 +8,16 @@
     <option name="checkSync" value="false" />
     <option name="env">
       <map>
-        <entry key="MSGW_CACHE_URL" value="redis://nas.local:6379/0 --workers=8" />
+        <entry key="MSGW_CACHE_URL" value="redis://nas.local:6379/0 --workers=1" />
         <entry key="MSGW_ECIES_KEY" value="MI81u6Lo9LWsE3BfMRioX8X-FbmMqkLb8kHXaMqbv0A" />
       </map>
     </option>
     <option name="runType" value="MODULE" />
     <option name="scriptOrModule" value="uvicorn" />
     <option name="uvArgs">
-      <list />
+      <list>
+        <option value="--no-dev" />
+      </list>
     </option>
     <option name="uvSdkKey" value="uv (msgw) (2)" />
     <method v="2" />
