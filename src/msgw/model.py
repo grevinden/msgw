@@ -34,7 +34,7 @@ class MessageFail ( BaseModel , frozen = True ) :
 # noinspection PyDataclass
 class Message ( BaseModel , frozen = True ) :
 	ttl: Annotated [ PositiveInt , Field ( settings.cache.ttl ) ]
-	uuid: Annotated [ UUID4 , Field ( title = "UUID4" ) ]
+	uuid: Annotated [ UUID , Field ( title = "UUID4" ) ]
 	payload: Annotated [
 		MessageSend | MessageDone | MessageFail ,
 		Field ( discriminator = "typ" , title = "PAYLOAD" , description = "Содержимое пакета данных" ) ,

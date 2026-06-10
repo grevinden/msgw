@@ -137,5 +137,5 @@ async def send_pending_message ( w: WebSocket , b: Backend , k: str ) -> None :
 
 async def send_pending_messages ( w: WebSocket , b: Backend ) -> None :
 	async with create_task_group ( ) as tg :
-		async for k in b.scan ( "*" , batch_size = settings.cache.batch_size ) :
+		async for k in b.scan ( "*" , batch_size = 100 ) :
 			tg.soonify ( shield ) ( send_pending_message ( w , b , k ) )
