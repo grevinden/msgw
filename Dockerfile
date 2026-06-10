@@ -32,14 +32,16 @@ UVICORN_WS_PING_INTERVAL=3 \
 UVICORN_WS_PING_TIMEOUT=2 \
 UVICORN_WS_PER_MESSAGE_DEFLATE=1
 
+# ---- Application environment (prefix MSGW_ → parsed by pydantic-settings) ----
 ENV \
-APP=MSGW \
-# URL для хранилища кеша (mem://, mongo://..., redis://...)
-MSGW_CACHE_URL="mem://?check_interval=1" \
-# количество ключей, обрабатываемых за раз при сканировании
-MSGW_CACHE_BATCH_SIZE=100 \
-# время жизни ключей (в секундах) по-умолчанию
-MSGW_CACHE_TTL=3600
+    APP=MSGW \
+    MSGW_CACHE_URL="mem://?check_interval=1" \
+    MSGW_CACHE_BATCH_SIZE=100 \
+    MSGW_CACHE_TTL=3600 \
+    MSGW_ECIES_KEY="" \
+    MSGW_PROXY_HOSTS="http://domain.name" \
+    MSGW_HEALTH_TIMEOUT=2 \
+    MSGW_HEALTH_INTERVAL=3
 
 RUN apk add --no-cache tzdata gcc musl-dev python3-dev libffi-dev openssl-dev
 
@@ -51,6 +53,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY --link . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
+
+# Health check (requires / endpoint to exist)
+HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/ || exit 1
 
 ENTRYPOINT ["uv", "run", "--no-dev", "uvicorn", "msgw:app"]
 CMD ["--host", "0.0.0.0", "--port", "8000"]
