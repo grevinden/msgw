@@ -90,7 +90,7 @@ async def send ( r: Request , m: Message , t: BackgroundTasks ) -> Message :
 # noinspection PyUnusedLocal
 @asynccontextmanager
 async def proxy_lifespan (
-		a: FastAPI
+	a: FastAPI
 ) -> AsyncGenerator [ dict [ str , Any ] , None ] :  #
 
 	async with Proxy ( app ) as p :
@@ -101,7 +101,6 @@ if settings.ecies.key :
 	proxy_router = APIRouter ( lifespan = proxy_lifespan )
 
 
-	# noinspection PyUnusedLocal
 	@proxy_router.post (
 		"/{path:path}" ,
 		response_class = Response ,
@@ -109,8 +108,8 @@ if settings.ecies.key :
 		summary = "Proxy pass" ,
 	)
 	async def proxy_post (
-			req: Request , res: Response , upstream: Annotated [
-				QueryFreeHttpUrl , Query ( ) ] ) :  #
+		req: Request , upstream: Annotated [
+			QueryFreeHttpUrl , Query ( ) ] ) :  #
 
 		url = yarl.URL ( upstream.unicode_string ( ) )
 		origin = url.origin ( )

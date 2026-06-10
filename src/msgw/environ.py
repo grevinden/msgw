@@ -8,7 +8,7 @@ import cashews_mongo  # noqa
 import yarl
 from cashews import cache
 from pydantic import UrlConstraints , Field , AnyUrl , PositiveInt , computed_field , SecretStr , SecretBytes , \
-	field_validator , HttpUrl , BaseModel
+	field_validator , BaseModel
 from pydantic_settings import BaseSettings , SettingsError
 
 NAME: Final [ Literal [ "MSGW" ] ] = 'MSGW'
@@ -25,7 +25,6 @@ class Settings (
 			_constraints = UrlConstraints ( allowed_schemes = [ 'mem' , 'mongo' , 'redis' ] )
 
 		url: Annotated [ CashewsUrl , Field ( CashewsUrl ( "mem://" ) ) ]
-		batch_size: Annotated [ PositiveInt , Field ( 1 ) ]
 		ttl: Annotated [
 			PositiveInt ,
 			Field ( 3600 , description = 'Время жизни кеша, по-умолчанию' )
@@ -76,19 +75,6 @@ class Settings (
 
 	ecies: Annotated [ Ecies , Field ( default_factory = Ecies ) ]
 
-	class Proxy ( BaseModel ) :
-		hosts: Annotated [
-			list [ HttpUrl ] | None ,
-			Field ( None , description = 'Предустановленный список http-адресов'
-			                             ' для проверки на активность' )
-		]
-
-		@computed_field
-		def enabled ( self ) -> bool :
-			return bool ( self.hosts )
-
-	proxy: Annotated [ Proxy , Field ( default_factory = Proxy ) ]
-
 	class Health ( BaseModel ) :
 		timeout: Annotated [
 			int ,
@@ -103,7 +89,7 @@ class Settings (
 
 		@computed_field
 		def enabled ( self ) -> bool :
-			return bool ( self.timeout ) and bool(self.interval)
+			return bool ( self.timeout ) and bool ( self.interval )
 
 	health: Annotated [ Health , Field ( default_factory = Health ) ]
 

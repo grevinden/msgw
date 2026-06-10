@@ -15,11 +15,9 @@ from pydantic import PositiveInt , HttpUrl
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema , PydanticCustomError
 from starlette.websockets import WebSocket
-from yarl import URL
 
 from .config import settings , header_system_id
 from .environ import NAME
-from .proxy import health_registry
 from .ws import ConnectionManager , ws_send
 
 logger: Final [ Logger ] = getLogger ( "uvicorn" )
@@ -91,11 +89,7 @@ if __debug__ :
 # noinspection PyUnusedLocal
 @asynccontextmanager
 async def lifespan ( a: FastAPI ) :
-	async with create_task_group ( ) as tg :
-		for host in settings.proxy.hosts or [ ] :
-			tg.soonify ( await cache.init ) ( )
-			tg.soonify ( health_registry.checker ) (
-				URL ( host.unicode_string ( ) ).origin ( ) )
+	await cache.init ( )
 
 	try :
 		yield {
@@ -104,8 +98,7 @@ async def lifespan ( a: FastAPI ) :
 		}
 
 	finally :
-		async with create_task_group ( ) as tg :
-			tg.soonify ( cache.close ) ( )
+		await cache.close ( )
 
 
 app = FastAPI (

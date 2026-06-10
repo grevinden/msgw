@@ -32,7 +32,7 @@ if settings.ecies.key :
 	) -> list [ SecretBytes ] :  #
 
 		# Приватный ключ у нас в байтах (32 байта) – переводим в Base64 без паддинга
-		private_b64 = urlsafe_b64encode ( Buffer(k) ).rstrip ( b"=" ).decode ( )
+		private_b64 = urlsafe_b64encode ( k.get_secret_value() ).rstrip ( b"=" ).decode ( )
 
 		def _replace ( match ) :
 			token = match.group ( 1 )

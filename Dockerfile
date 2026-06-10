@@ -36,12 +36,8 @@ UVICORN_WS_PER_MESSAGE_DEFLATE=1
 ENV \
     APP=MSGW \
     MSGW_CACHE_URL="mem://?check_interval=1" \
-    MSGW_CACHE_BATCH_SIZE=100 \
     MSGW_CACHE_TTL=3600 \
-    MSGW_ECIES_KEY="" \
-    MSGW_PROXY_HOSTS="http://domain.name" \
-    MSGW_HEALTH_TIMEOUT=2 \
-    MSGW_HEALTH_INTERVAL=3
+    MSGW_ECIES_KEY=""
 
 RUN apk add --no-cache tzdata gcc musl-dev python3-dev libffi-dev openssl-dev
 
