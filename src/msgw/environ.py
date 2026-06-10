@@ -75,24 +75,6 @@ class Settings (
 
 	ecies: Annotated [ Ecies , Field ( default_factory = Ecies ) ]
 
-	class Health ( BaseModel ) :
-		timeout: Annotated [
-			int ,
-			Field ( 2 , description = 'Таймаут проверки доступности'
-			                          ' вышестоящего сервера при проксировании' )
-		]
-		interval: Annotated [
-			int ,
-			Field ( 3 , description = 'Интервал проверки проверки доступности'
-			                          ' вышестоящего сервера при проксировании' )
-		]
-
-		@computed_field
-		def enabled ( self ) -> bool :
-			return bool ( self.timeout ) and bool ( self.interval )
-
-	health: Annotated [ Health , Field ( default_factory = Health ) ]
-
 	class AppPath ( BaseModel ) :
 		@computed_field
 		def root ( self ) -> Path :

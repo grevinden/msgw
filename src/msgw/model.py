@@ -1,7 +1,7 @@
 from typing import Literal , Annotated
 from uuid import UUID
 
-from pydantic import BaseModel , UUID4 , Field , computed_field , PositiveInt , SecretStr , AnyUrl , field_serializer
+from pydantic import BaseModel , Field , computed_field , PositiveInt , SecretStr , AnyUrl , field_serializer
 from pydantic_core import from_json
 from ulid import ULID
 
