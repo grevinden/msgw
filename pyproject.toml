@@ -3,7 +3,7 @@ name = "msgw"
 version = "0.0.0"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi",
+    "fastapi[standard]",
     "pydantic[email]",
     "pydantic-extra-types[all]",
     "cashews[dill,diskcache,speedup,redis]>=7.5.0",
@@ -17,8 +17,19 @@ dependencies = [
     "fastapi-reverse-proxy",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+]
+
 [tool.uv]
 package = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]

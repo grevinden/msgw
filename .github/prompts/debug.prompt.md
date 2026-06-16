@@ -66,7 +66,7 @@
 
 ### Д. Настройки (`settings.py`)
 *   Все конфигурации берутся из ENV с префиксом `MSGW_`.
-*   `MSGW_CACHE`: URL подключения (например, `redis://localhost:6379/0`).
+*   `MSGW_CACHE_URL`: URL подключения (например, `redis://localhost:6379/0`).
 *   `MSGW_ECIES_KEY`: Приватный ключ в формате base64url (без padding, ровно 43 символа).
 
 ---

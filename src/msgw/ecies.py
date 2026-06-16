@@ -13,8 +13,13 @@ from pydantic import SecretBytes
 from .config import settings
 
 
+def _b64decode(s: str) -> bytes:
+    """Base64url decode с корректным padding."""
+    return urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
 def decrypt_x25519_chacha(encrypted_b64: str, private_key_b64: str) -> str:
-    if len(encrypted := urlsafe_b64decode(encrypted_b64 + "=")) < 32 + 12 + 16:
+    if len(encrypted := _b64decode(encrypted_b64)) < 32 + 12 + 16:
         raise ValueError("Зашифрованные данные слишком короткие")
 
     return (
@@ -26,7 +31,7 @@ def decrypt_x25519_chacha(encrypted_b64: str, private_key_b64: str) -> str:
                 info=b"ecies-chacha20-poly1305",
             ).derive(
                 X25519PrivateKey.from_private_bytes(
-                    urlsafe_b64decode(private_key_b64 + "=")
+                    _b64decode(private_key_b64)
                 ).exchange(X25519PublicKey.from_public_bytes(encrypted[:32]))
             )
         )

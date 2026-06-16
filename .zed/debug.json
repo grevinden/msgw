@@ -1,0 +1,23 @@
+[
+  {
+    "label": "Debug fastapi",
+    "adapter": "Debugpy",
+    "request": "launch",
+    "module": "fastapi",
+    "args": [
+      "dev",
+      "--host=0.0.0.0",
+      "--port=8000",
+      "--forwarded-allow-ips=*",
+      "src/msgw",
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "APP": "MSGW",
+      "MSGW_CACHE_URL": "mem://?check_interval=1",
+      "MSGW_CACHE_TTL": "3600",
+    },
+    "jinja": true,
+    "justMyCode": true,
+  },
+]
