@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from asyncio import shield
+from os import _exit
 from contextlib import asynccontextmanager
 from logging import Logger, getLogger
 from pathlib import Path
@@ -90,7 +91,26 @@ class QueryFreeHttpUrl(HttpUrl):
 # noinspection PyUnusedLocal
 @asynccontextmanager
 async def lifespan(a: FastAPI):
-    await cache.init()
+    try:
+        await cache.init()
+    except (TimeoutError, ConnectionError, OSError) as exc:
+        logger.error(
+            "\u274c Не удалось подключиться к кэшу по адресу %s\n"
+            "   Причина: %s\n\n"
+            "   Проверьте:\n"
+            "   1. Redis-сервер запущен и доступен\n"
+            "   2. Сетевое подключение к хосту есть (DNS/IP)\n"
+            "   3. Порт 6379 открыт и не заблокирован фаерволом\n\n"
+            "   Если запускаете в Docker, укажите IP напрямую:\n"
+            "     -e MSGW_CACHE_URL=redis://<IP>:6379/0\n"
+            "   Или добавьте хост:\n"
+            "     --add-host <hostname>:<IP>\n\n"
+            "   Для работы без Redis используйте:\n"
+            "     -e MSGW_CACHE_URL=mem://",
+            settings.cache.url,
+            exc,
+        )
+        _exit(1)
 
     try:
         yield {

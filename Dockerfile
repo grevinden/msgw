@@ -53,7 +53,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8000/ || exit 1
 
-ENTRYPOINT ["uv", "run", "--no-dev", "uvicorn", "msgw:app"]
-CMD ["--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT [ ".venv/bin/fastapi" ]
+CMD [ "run", "--host=0.0.0.0", "--port=8000", "--worker=1", "--forwarded-allow-ips=*", "src/msgw"]
 
 EXPOSE 8000
