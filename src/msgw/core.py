@@ -91,6 +91,10 @@ class QueryFreeHttpUrl(HttpUrl):
 # noinspection PyUnusedLocal
 @asynccontextmanager
 async def lifespan(a: FastAPI):
+    # Подавить "Future exception was never retrieved" от health-чека
+    from .proxy import setup_exception_handler
+    setup_exception_handler()
+
     try:
         await cache.init()
     except (TimeoutError, ConnectionError, OSError) as exc:

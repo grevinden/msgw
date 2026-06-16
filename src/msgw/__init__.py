@@ -25,8 +25,18 @@ from .ws import ConnectionManager
 # noinspection PyUnusedLocal
 @app.exception_handler(ConnectError)
 async def exc_httpx(request: Request, exc: ConnectError):
+    msg = str(exc)
+    # Делаем ошибку понятной для пользователя
+    if "Name does not resolve" in msg or "DNS" in msg:
+        detail = f"Upstream DNS error: {msg}"
+    elif "Connection refused" in msg:
+        detail = f"Upstream connection refused: {msg}"
+    elif "timed out" in msg or "Timeout" in msg:
+        detail = f"Upstream timeout: {msg}"
+    else:
+        detail = f"Upstream connection error: {msg}"
     return PlainTextResponse(
-        status_code=502, content=str(exc), headers=header_system_id
+        status_code=502, content=detail, headers=header_system_id
     )
 
 
@@ -102,6 +112,15 @@ if settings.ecies.key:
         response_class=Response,
         response_model=None,
         summary="Proxy pass",
+        description=(
+            "Расшифровывает тело запроса (ECIES) и пересылает на upstream.\n\n"
+            "**Health-чек:** TCP-проверка порта upstream. \n"
+            "- Первый запрос к новому хосту включает проверку (до 2 сек).\n"
+            "- Фоновая проверка каждые 3 сек.\n"
+            "- Если порт недоступен — 503.\n\n"
+            "**Upstream:** указывается в query-параметре `?upstream=...`.\n"
+            "**Тело:** зашифрованные фрагменты в формате `{{base64url_данные}}`."
+        ),
     )
     async def proxy_post(
         req: Request, upstream: Annotated[QueryFreeHttpUrl, Query()]
@@ -110,13 +129,12 @@ if settings.ecies.key:
         url = yarl.URL(upstream.unicode_string())
         origin = url.origin()
 
-        checker = await health_registry.checker(origin)
-        if not checker.is_healthy(origin.human_repr()):
+        if not await health_registry.is_healthy(origin):
             raise HTTPException(
                 status_code=503,
                 detail=f"Backend not healthy: {origin.human_repr()}",
                 headers={
-                    "Retry-After": str(checker.interval),
+                    "Retry-After": "3",
                     "X-Upstream-Status": "unhealthy",
                 },
             )

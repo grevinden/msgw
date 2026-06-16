@@ -33,7 +33,7 @@ class MessageFail ( BaseModel , frozen = True ) :
 
 # noinspection PyDataclass
 class Message ( BaseModel , frozen = True ) :
-	ttl: Annotated [ PositiveInt , Field ( settings.cache.ttl ) ]
+	ttl: Annotated [ PositiveInt , Field ( default = settings.cache.ttl ) ]
 	uuid: Annotated [ UUID , Field ( title = "UUID4" ) ]
 	payload: Annotated [
 		MessageSend | MessageDone | MessageFail ,
