@@ -11,9 +11,8 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
 ## 1. Project Overview
 **Name:** MSGW (MessageCenter)
 **Core Function:** A high-performance FastAPI service that acts as:
-1.  **Real-time Message Broker:** Handles WebSocket connections and HTTP `QUERY` methods for message distribution, backed by `cashews` (Redis/MongoDB).
+1.  **Real-time Message Broker:** Handles WebSocket connections and HTTP `QUERY` methods for message distribution, backed by `cashews` (Redis/MongoDB/Memory).
 2.  **Secure Reverse Proxy:** Proxies POST requests with on-the-fly ECIES decryption of sensitive tokens (`{{token}}`) using `fastapi-reverse-proxy` and `cryptography`.
-3.  **LLM Debug Assistant:** Provides an endpoint `/api/llm` to analyze errors via OpenRouter/LiteLLM.
 
 **Tech Stack:**
 -   **Framework:** FastAPI (>=0.136.1), Uvicorn.
@@ -22,19 +21,16 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
 -   **Cache/State:** `cashews` (with `cashews-mongo` support), Redis/Memory.
 -   **Crypto:** `cryptography` (X25519 + ChaCha20-Poly1305 for ECIES).
 -   **Proxy:** `fastapi-reverse-proxy`, `httpx`.
--   **LLM:** `litellm` (for OpenRouter integration).
 -   **Utils:** `yarl` (URL parsing), `ulid`, `pydantic-settings`.
 
 ## 2. Architectural Modules
 
-### A. Configuration (`settings.py`, `config.py`)
+### A. Configuration (`environ.py`, `config.py`)
 -   **Settings Class:** Inherits from `pydantic_settings.BaseSettings`.
 -   **Prefix:** Uses env prefix `MSGW_` (derived from `APP` env var or default `MSGW`).
 -   **Key Fields:**
     -   `cache`: URL string (`redis://`, `mongo://`, `mem://`). Initialized in `model_post_init`.
     -   `ecies_key`: Optional `SecretStr` (43 chars base64url). If present, enables proxy routes.
-    -   `openrouter_api_key`: Optional `SecretStr` for LLM features.
-    -   `llm_model`: Default `"openrouter/openai/gpt-4o-mini"`.
 -   **Computed Fields:**
     -   `path_root`: Path to project root.
     -   `ecies_bytes`: Decoded private key bytes for crypto operations.
@@ -70,18 +66,12 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
 -   **Function:** `decrypt_bytes` scans request body for tokens, decrypts them using the server's private key (`settings.ecies_bytes`), and replaces them with plaintext. Invalid tokens are left unchanged.
 
 ### F. Proxy & Health Checks (`proxy.py`, `__init__.py`)
--   **HealthRegistry:** Dynamic registry of `HealthChecker` instances per host. Uses a shared `httpx.AsyncClient`.
+-   **HealthRegistry:** Dynamic registry of `HealthChecker` instances per host. Uses `asyncio.open_connection()` for TCP-level port checks (not HTTP).
 -   **Proxy Route:**
     -   Activated only if `settings.ecies_key` is set.
     -   Endpoint: `POST /{path:path}?upstream=<url>`.
     -   Flow: Check health -> Decrypt body -> Remove `upstream` param -> Proxy request via `proxy_pass`.
     -   Headers: Injects `X-System-ID` and `X-Upstream-Status`.
-
-### G. LLM Integration (`llm.py` - *Implicit based on recent changes*)
--   **Library:** `litellm`.
--   **Endpoint:** `POST /api/llm`.
--   **Payload:** `{ "error": str, "prompt": str }`.
--   **Logic:** Calls `acompletion` with `openrouter/...` model. Returns LLM response or error message.
 
 ## 3. Coding Standards & Constraints
 
@@ -116,11 +106,6 @@ You are an expert Python developer specializing in the `msgw` (Message Center Ga
     ```python
     # Client sends: {"token": "{{encrypted_blob}}"}
     # Server decrypts blob and forwards: {"token": "plain_text_value"}
-    ```
--   **Debugging with LLM:**
-    ```text
-    # POST /api/llm
-    {"error": "KeyError: 'id'", "prompt": "Fix this dict access"}
     ```
 
 When answering questions, always refer to these modules and constraints. If a feature is not explicitly defined in this context, assume standard FastAPI/Pydantic best practices but prioritize the existing `msgw` patterns.

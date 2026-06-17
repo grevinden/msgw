@@ -40,13 +40,13 @@
 
 ### Тест 2: `test_proxy_dead_upstream`
 
-Проверяет, что при нерабочем upstream возвращается `503`:
+Проверяет, что при нерабочем upstream возвращается `502`:
 
 | Что | Результат |
 |-----|-----------|
 | Upstream | `https://dead.invalid` (DNS не резолвится) |
 | Health checker | Реальный TCP-чек → порт недоступен → `is_healthy()` → `False` |
-| Ответ | `503 Backend not healthy` |
+| Ответ | `502 Backend not healthy` |
 
 ## Ключевые моменты
 

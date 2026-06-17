@@ -117,7 +117,7 @@ if settings.ecies.key:
             "**Health-чек:** TCP-проверка порта upstream. \n"
             "- Первый запрос к новому хосту включает проверку (до 2 сек).\n"
             "- Фоновая проверка каждые 3 сек.\n"
-            "- Если порт недоступен — 503.\n\n"
+            "- Если порт недоступен — 502.\n\n"
             "**Upstream:** указывается в query-параметре `?upstream=...`.\n"
             "**Тело:** зашифрованные фрагменты в формате `{{base64url_данные}}`."
         ),
@@ -131,7 +131,7 @@ if settings.ecies.key:
 
         if not await health_registry.is_healthy(origin):
             raise HTTPException(
-                status_code=503,
+                status_code=502,
                 detail=f"Backend not healthy: {origin.human_repr()}",
                 headers={
                     "Retry-After": "3",

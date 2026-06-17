@@ -126,16 +126,16 @@ class TestProxyPost:
         logger.info("TEST PASSED!")
 
     def test_proxy_dead_upstream(self, app, ecies_key_bytes):
-        """Dead upstream → 503 (health-чек заблокировал).
+        """Dead upstream → 502 (health-чек заблокировал).
 
         Первый запрос к несуществующему хосту проходит TCP-чек
-        (DNS не резолвится → порт закрыт → 503).
+        (DNS не резолвится → порт закрыт → 502).
         """
         plain_body = json.dumps({"test": "dead"})
         encrypted_body = encrypt_body(plain_body, ecies_key_bytes)
 
         logger.info("=" * 70)
-        logger.info("TEST: Dead upstream → 503")
+        logger.info("TEST: Dead upstream → 502")
         logger.info("=" * 70)
 
         with TestClient(app) as client:
@@ -148,7 +148,7 @@ class TestProxyPost:
         logger.info(f"  Status: {response.status_code}")
         logger.info(f"  Body: {response.text}")
 
-        assert response.status_code == 503
+        assert response.status_code == 502
         assert "Backend not healthy" in response.text
 
         logger.info("TEST PASSED!")
